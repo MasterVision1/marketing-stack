@@ -316,16 +316,21 @@ def dry_run(deployment, env):
     except requests.RequestException:
         print("  [CHECK] Mautic reachable: NO (stack may not be running)")
 
-    # Check Buffer
+    # Check Buffer (GraphQL API)
     buffer_token = env.get("BUFFER_ACCESS_TOKEN", "")
     if buffer_token and buffer_token != "CHANGE_ME_BUFFER_TOKEN":
         try:
-            resp = requests.get(
-                f"{env.get('BUFFER_API_URL', 'https://api.bufferapp.com/1')}/user.json",
-                params={"access_token": buffer_token},
+            resp = requests.post(
+                env.get("BUFFER_API_URL", "https://api.buffer.com"),
+                json={"query": "{ account { id } }"},
+                headers={
+                    "Authorization": f"Bearer {buffer_token}",
+                    "Content-Type": "application/json",
+                },
                 timeout=5,
             )
-            print(f"  [CHECK] Buffer API: {'YES' if resp.status_code == 200 else 'NO'}")
+            ok = resp.status_code == 200 and "data" in resp.json()
+            print(f"  [CHECK] Buffer API: {'YES' if ok else 'NO'}")
         except requests.RequestException:
             print("  [CHECK] Buffer API: NO")
     else:

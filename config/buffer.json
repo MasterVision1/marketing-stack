@@ -1,13 +1,16 @@
 {
-  "api_url": "https://api.bufferapp.com/1",
-  "endpoints": {
-    "user": "/user.json",
-    "profiles": "/profiles.json",
-    "updates_create": "/updates/create.json",
-    "updates_pending": "/profiles/{profile_id}/updates/pending.json",
-    "updates_sent": "/profiles/{profile_id}/updates/sent.json",
-    "update_destroy": "/updates/{update_id}/destroy.json",
-    "update_edit": "/updates/{update_id}/update.json"
+  "api_url": "https://api.buffer.com",
+  "api_type": "graphql",
+  "auth_method": "bearer_header",
+  "queries": {
+    "account": "{ account { id name email channels { id name service } } }",
+    "channels": "{ account { channels { id name service serverUrl } } }",
+    "posts": "query Posts($input: PostsInput!, $first: Int, $after: String) { posts(input: $input, first: $first, after: $after) { edges { node { id text status } } pageInfo { hasNextPage endCursor } } }",
+    "post": "query Post($input: PostInput!) { post(input: $input) { id text status } }"
+  },
+  "mutations": {
+    "create_post": "mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionPayload { post { id text status } } } }",
+    "delete_post": "mutation DeletePost($input: DeletePostInput!) { deletePost(input: $input) { ... on DeletePostPayload { success } } }"
   },
   "scheduling": {
     "default_timezone": "America/Chicago",

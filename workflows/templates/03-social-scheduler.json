@@ -33,14 +33,18 @@
     },
     {
       "parameters": {
-        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "url": "https://api.buffer.com",
         "method": "POST",
-        "body": {
-          "access_token": "={{$env.BUFFER_ACCESS_TOKEN}}",
-          "profile_ids[]": "={{$json.channel_id}}",
-          "text": "={{$json.text}}",
-          "scheduled_at": "={{$json.scheduled_at}}"
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.BUFFER_ACCESS_TOKEN}}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
         },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"query\":\"mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionPayload { post { id text status } } ... on InvalidInputError { message } } }\",\"variables\":{\"input\":{\"channelIds\":[\\\"{{$json.channel_id}}\\\"],\"text\":\"{{$json.text}}\",\"scheduledAt\":\"{{$json.scheduled_at}}\"}}}",
         "options": {"timeout": 15000}
       },
       "id": "create_buffer_post",
@@ -52,8 +56,8 @@
     {
       "parameters": {
         "conditions": {
-          "boolean": [
-            {"value1": "={{$json.success}}", "value2": true}
+          "string": [
+            {"value1": "={{$json.data.createPost.post.id}}", "operation": "isNotEmpty"}
           ]
         }
       },
@@ -68,9 +72,9 @@
         "values": {
           "string": [
             {"name": "action", "value": "social_scheduled"},
-            {"name": "post_id", "value": "={{$json.updates[0].id}}"},
-            {"name": "channel_id", "value": "={{$json.updates[0].profile_id}}"},
-            {"name": "scheduled_at", "value": "={{$json.updates[0].scheduled_at}}"},
+            {"name": "post_id", "value": "={{$json.data.createPost.post.id}}"},
+            {"name": "channel_id", "value": "={{$node['Schedule Webhook'].json.channel_id}}"},
+            {"name": "status", "value": "={{$json.data.createPost.post.status}}"},
             {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
           ]
         }

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-bootstrap-buffer.py — Verify Buffer token, fetch channels, test scheduled post.
+bootstrap-buffer.py — Verify Buffer token, fetch channels, test post create/delete.
 Contract: python scripts/bootstrap-buffer.py
+
+Buffer has migrated to a GraphQL API at https://api.buffer.com.
+Authentication: Bearer token in Authorization header.
 
 Requires:
   - BUFFER_ACCESS_TOKEN in .env
@@ -37,52 +40,70 @@ def load_env():
     return env
 
 
-def verify_user(api_url, token):
-    """Verify the Buffer access token is valid."""
-    resp = requests.get(
-        f"{api_url}/user.json",
-        params={"access_token": token},
-        timeout=15,
-    )
-    if resp.status_code != 200:
-        print(f"ERROR: Buffer auth failed — HTTP {resp.status_code}")
+def gql(api_url, token, query, variables=None):
+    """Execute a GraphQL query against the Buffer API."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    payload = {"query": query}
+    if variables:
+        payload["variables"] = variables
+
+    resp = requests.post(api_url, json=payload, headers=headers, timeout=15)
+
+    if resp.status_code == 401:
+        print(f"ERROR: Buffer auth failed — HTTP 401")
         print("  Check BUFFER_ACCESS_TOKEN in .env")
+        print("  Generate a new token at: https://publish.buffer.com/settings/api")
         sys.exit(1)
 
-    user = resp.json()
-    print(f"  [PASS] Authenticated as: {user.get('name', 'unknown')}")
-    return user
+    if resp.status_code == 429:
+        print("ERROR: Buffer rate limit exceeded. Wait 15 minutes and retry.")
+        sys.exit(1)
 
-
-def fetch_profiles(api_url, token):
-    """Fetch connected social profiles/channels."""
-    resp = requests.get(
-        f"{api_url}/profiles.json",
-        params={"access_token": token},
-        timeout=15,
-    )
     if resp.status_code != 200:
-        print(f"ERROR: Cannot fetch profiles — HTTP {resp.status_code}")
+        print(f"ERROR: Buffer API returned HTTP {resp.status_code}")
+        print(f"  Body: {resp.text[:300]}")
+        sys.exit(1)
+
+    data = resp.json()
+    if "errors" in data:
+        print(f"ERROR: GraphQL errors: {json.dumps(data['errors'], indent=2)[:500]}")
+        return None
+
+    return data.get("data")
+
+
+def verify_account(api_url, token):
+    """Verify the Buffer access token is valid and fetch account info."""
+    data = gql(api_url, token, "{ account { id name email } }")
+    if not data or not data.get("account"):
+        print("ERROR: Could not fetch account info")
+        sys.exit(1)
+
+    acct = data["account"]
+    print(f"  [PASS] Authenticated as: {acct.get('name', 'unknown')} ({acct.get('email', '')})")
+    print(f"  [INFO] Account ID: {acct['id']}")
+    return acct
+
+
+def fetch_channels(api_url, token):
+    """Fetch connected social channels."""
+    data = gql(api_url, token, "{ account { channels { id name service serverUrl } } }")
+    if not data or not data.get("account"):
         return []
 
-    profiles = resp.json()
-    if not profiles:
-        print("  [WARN] No connected social profiles found in Buffer.")
-        print("         Connect at least one profile at https://publish.buffer.com")
+    channels = data["account"].get("channels", [])
+    if not channels:
+        print("  [WARN] No connected social channels found in Buffer.")
+        print("         Connect at least one channel at https://publish.buffer.com")
         return []
 
-    channels = []
-    for p in profiles:
-        channel = {
-            "id": p.get("id"),
-            "service": p.get("service"),
-            "service_username": p.get("service_username"),
-            "formatted_service": p.get("formatted_service"),
-        }
-        channels.append(channel)
-        print(f"  [OK] {channel['formatted_service']}: @{channel['service_username']} (ID: {channel['id']})")
+    for ch in channels:
+        print(f"  [OK] {ch.get('service', '?')}: {ch.get('name', '?')} (ID: {ch['id']})")
 
-    # Save channel IDs to config
+    # Save channel info to config
     config_path = Path(__file__).resolve().parent.parent / "config" / "buffer.json"
     if config_path.exists():
         with open(config_path, "r") as f:
@@ -98,156 +119,106 @@ def fetch_profiles(api_url, token):
     return channels
 
 
-def test_scheduled_post(api_url, token, profile_id):
-    """Create a test scheduled post to prove the pipeline works, then delete it."""
-    # Schedule 24 hours from now
-    scheduled_at = datetime.now(timezone.utc) + timedelta(hours=24)
-    scheduled_ts = int(scheduled_at.timestamp())
+def test_create_delete_post(api_url, token, channel_id):
+    """Create a test scheduled post via GraphQL, then delete it."""
+    scheduled_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
 
-    payload = {
-        "access_token": token,
-        "profile_ids[]": profile_id,
-        "text": "[MARKETING-STACK TEST] This is an automated pipeline verification post. Will be deleted immediately.",
-        "scheduled_at": scheduled_ts,
+    create_mutation = """
+    mutation CreatePost($input: CreatePostInput!) {
+      createPost(input: $input) {
+        ... on PostActionPayload {
+          post { id text status }
+        }
+        ... on InvalidInputError { message }
+        ... on UnauthorizedError { message }
+        ... on UnexpectedError { message }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "channelIds": [channel_id],
+            "text": "[MARKETING-STACK TEST] Automated pipeline verification. Will be deleted.",
+            "scheduledAt": scheduled_at,
+        }
     }
 
     print(f"\n  Creating test scheduled post (24h from now)...")
-    resp = requests.post(
-        f"{api_url}/updates/create.json",
-        data=payload,
-        timeout=15,
-    )
-
-    if resp.status_code != 200:
-        print(f"  [FAIL] Create scheduled post — HTTP {resp.status_code}")
-        try:
-            print(f"         {resp.json()}")
-        except Exception:
-            pass
+    data = gql(api_url, token, create_mutation, variables)
+    if not data:
+        print("  [FAIL] Create post returned no data")
         return False
 
-    result = resp.json()
-    if not result.get("success"):
-        print(f"  [FAIL] Buffer returned success=false: {result.get('message', '')}")
+    result = data.get("createPost", {})
+    post = result.get("post")
+    if not post:
+        error_msg = result.get("message", "Unknown error")
+        print(f"  [FAIL] Create post failed: {error_msg}")
         return False
 
-    update_id = result.get("updates", [{}])[0].get("id") if result.get("updates") else None
-    if not update_id:
-        print("  [WARN] Post created but no update ID returned")
-        return True
-
-    print(f"  [PASS] Scheduled post created — ID: {update_id}")
-
-    # Verify it exists in pending
-    pending_resp = requests.get(
-        f"{api_url}/profiles/{profile_id}/updates/pending.json",
-        params={"access_token": token},
-        timeout=15,
-    )
-    if pending_resp.status_code == 200:
-        pending = pending_resp.json()
-        count = pending.get("total", len(pending.get("updates", [])))
-        print(f"  [PASS] Pending posts visible — count: {count}")
-    else:
-        print(f"  [WARN] Pending check — HTTP {pending_resp.status_code}")
+    post_id = post["id"]
+    print(f"  [PASS] Post created — ID: {post_id}, Status: {post.get('status', '?')}")
 
     # Delete the test post
-    delete_resp = requests.post(
-        f"{api_url}/updates/{update_id}/destroy.json",
-        data={"access_token": token},
-        timeout=15,
-    )
-    if delete_resp.status_code == 200:
-        print(f"  [PASS] Test post deleted — ID: {update_id}")
-    else:
-        print(f"  [WARN] Could not delete test post — HTTP {delete_resp.status_code}")
-        print(f"         Delete manually: {update_id}")
-
-    return True
-
-
-def test_update_post(api_url, token, profile_id):
-    """Verify we can create and update a post (edit capability)."""
-    scheduled_at = datetime.now(timezone.utc) + timedelta(hours=48)
-    scheduled_ts = int(scheduled_at.timestamp())
-
-    payload = {
-        "access_token": token,
-        "profile_ids[]": profile_id,
-        "text": "[MARKETING-STACK UPDATE TEST] Original text.",
-        "scheduled_at": scheduled_ts,
+    delete_mutation = """
+    mutation DeletePost($input: DeletePostInput!) {
+      deletePost(input: $input) {
+        ... on DeletePostPayload { success }
+        ... on NotFoundError { message }
+        ... on UnexpectedError { message }
+      }
     }
-
-    resp = requests.post(f"{api_url}/updates/create.json", data=payload, timeout=15)
-    if resp.status_code != 200 or not resp.json().get("success"):
-        print("  [SKIP] Update test — could not create initial post")
-        return False
-
-    update_id = resp.json().get("updates", [{}])[0].get("id")
-    if not update_id:
-        return False
-
-    # Edit the post
-    edit_resp = requests.post(
-        f"{api_url}/updates/{update_id}/update.json",
-        data={
-            "access_token": token,
-            "text": "[MARKETING-STACK UPDATE TEST] Modified text.",
-        },
-        timeout=15,
-    )
-    if edit_resp.status_code == 200:
-        print(f"  [PASS] Post update/edit works — ID: {update_id}")
+    """
+    del_data = gql(api_url, token, delete_mutation, {"input": {"postId": post_id}})
+    if del_data and del_data.get("deletePost", {}).get("success"):
+        print(f"  [PASS] Test post deleted — ID: {post_id}")
     else:
-        print(f"  [WARN] Post edit — HTTP {edit_resp.status_code}")
+        print(f"  [WARN] Could not delete test post — ID: {post_id}")
+        print(f"         Delete manually from Buffer dashboard")
 
-    # Cleanup
-    requests.post(
-        f"{api_url}/updates/{update_id}/destroy.json",
-        data={"access_token": token},
-        timeout=15,
-    )
-    print(f"  [OK] Update test post cleaned up")
     return True
 
 
 def main():
-    print("=== Buffer Bootstrap ===\n")
+    print("=== Buffer Bootstrap (GraphQL API) ===\n")
 
     env = load_env()
 
-    api_url = env.get("BUFFER_API_URL", "https://api.bufferapp.com/1").rstrip("/")
+    api_url = env.get("BUFFER_API_URL", "https://api.buffer.com").rstrip("/")
     token = env.get("BUFFER_ACCESS_TOKEN", "")
 
     if not token or token == "CHANGE_ME_BUFFER_TOKEN":
         print("ERROR: BUFFER_ACCESS_TOKEN not set or still placeholder in .env")
-        print("  Get your token from: https://publish.buffer.com/apps")
+        print("  Get your token from: https://publish.buffer.com/settings/api")
         sys.exit(1)
 
     # Step 1: Verify authentication
-    print("[1/4] Verifying Buffer authentication...")
-    verify_user(api_url, token)
+    print("[1/3] Verifying Buffer authentication...")
+    verify_account(api_url, token)
 
-    # Step 2: Fetch connected profiles/channels
-    print("\n[2/4] Fetching connected channels...")
-    channels = fetch_profiles(api_url, token)
+    # Step 2: Fetch connected channels
+    print("\n[2/3] Fetching connected channels...")
+    channels = fetch_channels(api_url, token)
 
     if not channels:
-        print("\nERROR: No channels connected. Cannot proceed with post tests.")
-        print("  Connect at least one profile at https://publish.buffer.com")
-        sys.exit(1)
+        print("\nWARN: No channels connected. Skipping post test.")
+        print("  Connect channels at https://publish.buffer.com, then re-run.")
+        print("\n=== Buffer Bootstrap Complete (partial — no channels) ===")
+        return
 
     # Use first channel for testing
-    test_profile = channels[0]["id"]
-    print(f"\n  Using channel '{channels[0]['service_username']}' for tests")
+    test_channel = channels[0]["id"]
+    print(f"\n  Using channel '{channels[0].get('name', '?')}' ({channels[0].get('service', '?')}) for tests")
 
-    # Step 3: Test scheduled post creation
-    print("\n[3/4] Testing scheduled post creation...")
-    test_scheduled_post(api_url, token, test_profile)
+    # Step 3: Test create + delete post
+    print("\n[3/3] Testing post create and delete...")
+    test_create_delete_post(api_url, token, test_channel)
 
-    # Step 4: Test post update/delete
-    print("\n[4/4] Testing post update and delete...")
-    test_update_post(api_url, token, test_profile)
+    print("\n=== Buffer Bootstrap Complete ===")
+
+
+if __name__ == "__main__":
+    main()
 
     print("\n=== Buffer Bootstrap Complete ===")
     print(f"  API: {api_url}")

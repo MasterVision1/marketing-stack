@@ -19,7 +19,7 @@ fi
 
 N8N_URL="${N8N_PROTOCOL:-http}://${N8N_HOST:-localhost}:${N8N_PORT:-5678}"
 MAUTIC_URL="${MAUTIC_URL:-http://localhost:${MAUTIC_PORT:-8080}}"
-BUFFER_URL="${BUFFER_API_URL:-https://api.bufferapp.com/1}"
+BUFFER_URL="${BUFFER_API_URL:-https://api.buffer.com}"
 
 PASS=0
 FAIL=0
@@ -49,9 +49,13 @@ check "n8n" "$N8N_URL/healthz" "200"
 # Mautic (may redirect to installer on first run)
 check "Mautic" "$MAUTIC_URL" "200"
 
-# Buffer API (requires token but base URL should respond)
+# Buffer API (GraphQL — requires Bearer token)
 if [ -n "${BUFFER_ACCESS_TOKEN:-}" ]; then
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${BUFFER_URL}/user.json?access_token=${BUFFER_ACCESS_TOKEN}" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+        -X POST "${BUFFER_URL}" \
+        -H "Authorization: Bearer ${BUFFER_ACCESS_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{"query":"{ account { id } }"}' 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
         echo "  [PASS] Buffer API — authenticated, HTTP $HTTP_CODE"
         PASS=$((PASS + 1))
