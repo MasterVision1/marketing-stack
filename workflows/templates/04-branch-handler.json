@@ -1,0 +1,239 @@
+{
+  "name": "[Branch] Event Branch Handler",
+  "tags": [{"name": "branch-handler"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "handle-event",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "handle-event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.event_type}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.contact_id}}", "operation": "isNotEmpty"}
+          ]
+        }
+      },
+      "id": "validate_event",
+      "name": "Valid Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {"value": "reply_positive", "output": 0},
+            {"value": "reply_negative", "output": 1},
+            {"value": "email_clicked", "output": 2},
+            {"value": "booked_call", "output": 3},
+            {"value": "no_response", "output": 4},
+            {"value": "unsubscribed", "output": 5}
+          ]
+        },
+        "dataPropertyName": "event_type"
+      },
+      "id": "route_event",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "move_to_sales_followup"},
+            {"name": "next_tag", "value": "qualified"},
+            {"name": "remove_tag", "value": "new_lead"}
+          ]
+        }
+      },
+      "id": "handle_reply_positive",
+      "name": "Reply Positive → Sales",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 50]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "mark_negative_reply"},
+            {"name": "next_tag", "value": "reply_negative"}
+          ]
+        }
+      },
+      "id": "handle_reply_negative",
+      "name": "Reply Negative → Log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 180]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "move_to_nurture"},
+            {"name": "next_tag", "value": "campaign:nurture"}
+          ]
+        }
+      },
+      "id": "handle_click",
+      "name": "Click → Nurture",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 310]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "goal_reached_stop_campaign"},
+            {"name": "next_tag", "value": "booked"},
+            {"name": "remove_tag", "value": "campaign:onboarding"}
+          ]
+        }
+      },
+      "id": "handle_booked",
+      "name": "Booked → Stop & Tag",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 440]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "schedule_reminder"},
+            {"name": "delay_days", "value": "2"}
+          ]
+        }
+      },
+      "id": "handle_no_response",
+      "name": "No Response → Reminder",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 570]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "stop_all_campaigns"},
+            {"name": "next_tag", "value": "unsubscribed"}
+          ]
+        }
+      },
+      "id": "handle_unsubscribed",
+      "name": "Unsubscribed → Stop All",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 700]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.contact_id}}/edit",
+        "method": "PATCH",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "tags": ["={{$json.next_tag}}"]
+        },
+        "options": {"timeout": 15000}
+      },
+      "id": "apply_tag",
+      "name": "Apply Tag in Mautic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1280, 300],
+      "credentials": {
+        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "logged_action", "value": "={{$json.action}}"},
+            {"name": "contact_id", "value": "={{$json.contact_id}}"},
+            {"name": "event_type", "value": "={{$json.event_type}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_outcome",
+      "name": "Log Outcome",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"handled\",\"action\":\"{{$json.logged_action}}\"}"
+      },
+      "id": "respond_success",
+      "name": "Respond Handled",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Invalid event payload\"}",
+        "responseCode": 400
+      },
+      "id": "respond_invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 550]
+    }
+  ],
+  "connections": {
+    "Event Webhook": {"main": [[{"node": "Valid Event?", "type": "main", "index": 0}]]},
+    "Valid Event?": {
+      "main": [
+        [{"node": "Route by Event Type", "type": "main", "index": 0}],
+        [{"node": "Respond Invalid", "type": "main", "index": 0}]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{"node": "Reply Positive → Sales", "type": "main", "index": 0}],
+        [{"node": "Reply Negative → Log", "type": "main", "index": 0}],
+        [{"node": "Click → Nurture", "type": "main", "index": 0}],
+        [{"node": "Booked → Stop & Tag", "type": "main", "index": 0}],
+        [{"node": "No Response → Reminder", "type": "main", "index": 0}],
+        [{"node": "Unsubscribed → Stop All", "type": "main", "index": 0}]
+      ]
+    },
+    "Reply Positive → Sales": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "Reply Negative → Log": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "Click → Nurture": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "Booked → Stop & Tag": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "No Response → Reminder": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "Unsubscribed → Stop All": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
+    "Apply Tag in Mautic": {"main": [[{"node": "Log Outcome", "type": "main", "index": 0}]]},
+    "Log Outcome": {"main": [[{"node": "Respond Handled", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

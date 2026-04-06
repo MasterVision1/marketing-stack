@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runmai.com/schemas/contact-event.schema.json",
+  "title": "Contact Event Schema",
+  "description": "Canonical event model for marketing automation. Without a clean event model, branch logic will be garbage.",
+  "type": "object",
+  "required": ["event_id", "event_type", "contact_id", "timestamp"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique event identifier"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "contact_created",
+        "tag_added",
+        "tag_removed",
+        "segment_entry",
+        "segment_exit",
+        "email_sent",
+        "email_opened",
+        "email_clicked",
+        "email_bounced",
+        "reply_positive",
+        "reply_negative",
+        "booked_call",
+        "unsubscribed",
+        "no_response",
+        "social_post_published",
+        "social_post_engaged",
+        "form_submitted",
+        "page_visited",
+        "campaign_entered",
+        "campaign_exited",
+        "step_completed"
+      ],
+      "description": "Type of event that occurred"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "Mautic contact ID or external reference"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 event timestamp"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["mautic", "n8n", "buffer", "webhook", "manual"],
+      "description": "System that generated this event"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "Campaign this event belongs to (if applicable)"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "Campaign step that triggered or received this event"
+    },
+    "data": {
+      "type": "object",
+      "description": "Event-specific payload",
+      "properties": {
+        "tag": { "type": "string" },
+        "segment": { "type": "string" },
+        "email_id": { "type": "string" },
+        "link_url": { "type": "string" },
+        "post_id": { "type": "string" },
+        "channel_id": { "type": "string" },
+        "reply_text": { "type": "string" },
+        "booking_url": { "type": "string" },
+        "form_id": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "ip_address": { "type": "string" },
+        "user_agent": { "type": "string" },
+        "referrer": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "name": "[Social] Social Scheduler",
+  "tags": [{"name": "social-scheduler"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-social",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "Schedule Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "schedule-social"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.text}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.channel_id}}", "operation": "isNotEmpty"}
+          ]
+        }
+      },
+      "id": "validate_post",
+      "name": "Valid Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.bufferapp.com/1/updates/create.json",
+        "method": "POST",
+        "body": {
+          "access_token": "={{$env.BUFFER_ACCESS_TOKEN}}",
+          "profile_ids[]": "={{$json.channel_id}}",
+          "text": "={{$json.text}}",
+          "scheduled_at": "={{$json.scheduled_at}}"
+        },
+        "options": {"timeout": 15000}
+      },
+      "id": "create_buffer_post",
+      "name": "Create Buffer Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {"value1": "={{$json.success}}", "value2": true}
+          ]
+        }
+      },
+      "id": "post_created",
+      "name": "Post Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "social_scheduled"},
+            {"name": "post_id", "value": "={{$json.updates[0].id}}"},
+            {"name": "channel_id", "value": "={{$json.updates[0].profile_id}}"},
+            {"name": "scheduled_at", "value": "={{$json.updates[0].scheduled_at}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_success",
+      "name": "Log Schedule Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1200, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"scheduled\",\"post_id\":\"{{$node['Log Schedule Success'].json.post_id}}\"}"
+      },
+      "id": "respond_success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 100]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "social_schedule_failed"},
+            {"name": "error", "value": "={{$json.message || 'Unknown error'}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_failure",
+      "name": "Log Schedule Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1200, 350]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Buffer post creation failed\"}",
+        "responseCode": 500
+      },
+      "id": "respond_failure",
+      "name": "Respond Failure",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 350]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Invalid payload: text and channel_id required\"}",
+        "responseCode": 400
+      },
+      "id": "respond_invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 450]
+    }
+  ],
+  "connections": {
+    "Schedule Webhook": {"main": [[{"node": "Valid Post?", "type": "main", "index": 0}]]},
+    "Valid Post?": {
+      "main": [
+        [{"node": "Create Buffer Post", "type": "main", "index": 0}],
+        [{"node": "Respond Invalid", "type": "main", "index": 0}]
+      ]
+    },
+    "Create Buffer Post": {"main": [[{"node": "Post Created?", "type": "main", "index": 0}]]},
+    "Post Created?": {
+      "main": [
+        [{"node": "Log Schedule Success", "type": "main", "index": 0}],
+        [{"node": "Log Schedule Failure", "type": "main", "index": 0}]
+      ]
+    },
+    "Log Schedule Success": {"main": [[{"node": "Respond Success", "type": "main", "index": 0}]]},
+    "Log Schedule Failure": {"main": [[{"node": "Respond Failure", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

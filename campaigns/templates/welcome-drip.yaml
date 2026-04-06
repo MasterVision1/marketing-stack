@@ -1,0 +1,67 @@
+# Campaign Template: Welcome Drip
+# Copy this file to campaigns/active/ and customize.
+
+id: "welcome_drip_v1"
+name: "Welcome Drip Template"
+version: "v1"
+
+audience:
+  include_tags:
+    - "new_lead"
+  exclude_tags:
+    - "unsubscribed"
+
+entry_trigger:
+  type: "tag_added"
+  value: "new_lead"
+
+channels:
+  - "email"
+
+steps:
+  - id: "welcome_email"
+    type: "send_email"
+    channel: "email"
+    config:
+      template_id: "TEMPLATE_ID"
+      subject: "Welcome aboard"
+    next: "wait_1d"
+
+  - id: "wait_1d"
+    type: "wait"
+    channel: "internal"
+    delay:
+      value: 1
+      unit: "days"
+    next: "followup_email"
+
+  - id: "followup_email"
+    type: "send_email"
+    channel: "email"
+    config:
+      template_id: "TEMPLATE_ID"
+      subject: "Quick follow-up"
+    next: "stop"
+
+  - id: "stop"
+    type: "stop"
+    channel: "internal"
+
+branch_rules: []
+
+exit_conditions:
+  - "unsubscribed"
+
+tags:
+  add_on_entry:
+    - "campaign:welcome"
+  remove_on_exit:
+    - "campaign:welcome"
+
+goals:
+  - "email_clicked"
+
+schedule:
+  timezone: "America/Chicago"
+
+status: "draft"

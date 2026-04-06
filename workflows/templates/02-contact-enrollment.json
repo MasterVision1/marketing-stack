@@ -1,0 +1,129 @@
+{
+  "name": "[Enrollment] Contact Enrollment",
+  "tags": [{"name": "enrollment"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enroll-contact",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "Enrollment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "enroll-contact"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.contact_id}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.campaign_id}}", "operation": "isNotEmpty"}
+          ]
+        }
+      },
+      "id": "validate_payload",
+      "name": "Valid Payload?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.contact_id}}/edit",
+        "method": "PATCH",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "tags": ["={{$json.campaign_tag}}"]
+        },
+        "options": {"timeout": 15000}
+      },
+      "id": "update_contact",
+      "name": "Update Contact in Mautic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 200],
+      "credentials": {
+        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/segments/{{$json.segment_id}}/contact/{{$json.contact_id}}/add",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {"timeout": 15000}
+      },
+      "id": "add_to_segment",
+      "name": "Add to Segment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 200],
+      "credentials": {
+        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "enrolled"},
+            {"name": "contact_id", "value": "={{$json.contact_id}}"},
+            {"name": "campaign_id", "value": "={{$json.campaign_id}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_enrollment",
+      "name": "Log Enrollment",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"enrolled\",\"contact_id\":\"{{$json.contact_id}}\"}"
+      },
+      "id": "respond_success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Invalid payload: contact_id and campaign_id required\"}",
+        "responseCode": 400
+      },
+      "id": "respond_error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 450]
+    }
+  ],
+  "connections": {
+    "Enrollment Webhook": {"main": [[{"node": "Valid Payload?", "type": "main", "index": 0}]]},
+    "Valid Payload?": {
+      "main": [
+        [{"node": "Update Contact in Mautic", "type": "main", "index": 0}],
+        [{"node": "Respond Error", "type": "main", "index": 0}]
+      ]
+    },
+    "Update Contact in Mautic": {"main": [[{"node": "Add to Segment", "type": "main", "index": 0}]]},
+    "Add to Segment": {"main": [[{"node": "Log Enrollment", "type": "main", "index": 0}]]},
+    "Log Enrollment": {"main": [[{"node": "Respond Success", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

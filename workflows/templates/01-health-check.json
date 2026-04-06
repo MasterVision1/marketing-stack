@@ -1,0 +1,131 @@
+{
+  "name": "[Health] Stack Health Check",
+  "tags": [{"name": "health-check"}],
+  "active": false,
+  "triggerCount": 0,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "minutes", "minutesInterval": 30}]
+        }
+      },
+      "id": "trigger_schedule",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.N8N_PROTOCOL}}://{{$env.N8N_HOST}}:{{$env.N8N_PORT}}/healthz",
+        "options": {"timeout": 10000}
+      },
+      "id": "check_n8n",
+      "name": "Check n8n",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 150]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts?limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {"timeout": 10000}
+      },
+      "id": "check_mautic",
+      "name": "Check Mautic API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300],
+      "credentials": {
+        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.bufferapp.com/1/user.json?access_token={{$env.BUFFER_ACCESS_TOKEN}}",
+        "options": {"timeout": 10000}
+      },
+      "id": "check_buffer",
+      "name": "Check Buffer API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {"value1": "={{$node['Check n8n'].json.status}}", "value2": "ok"},
+            {"value1": "={{$node['Check Mautic API'].json.contacts}}", "operation": "exists"},
+            {"value1": "={{$node['Check Buffer API'].json.id}}", "operation": "exists"}
+          ]
+        }
+      },
+      "id": "evaluate_health",
+      "name": "All Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "status", "value": "healthy"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"},
+            {"name": "n8n", "value": "ok"},
+            {"name": "mautic", "value": "ok"},
+            {"name": "buffer", "value": "ok"}
+          ]
+        }
+      },
+      "id": "log_healthy",
+      "name": "Log Healthy",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "status", "value": "unhealthy"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"},
+            {"name": "details", "value": "One or more services failed health check"}
+          ]
+        }
+      },
+      "id": "log_unhealthy",
+      "name": "Log Unhealthy",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [960, 400]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [[
+        {"node": "Check n8n", "type": "main", "index": 0},
+        {"node": "Check Mautic API", "type": "main", "index": 0},
+        {"node": "Check Buffer API", "type": "main", "index": 0}
+      ]]
+    },
+    "Check n8n": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
+    "Check Mautic API": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
+    "Check Buffer API": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
+    "All Healthy?": {
+      "main": [
+        [{"node": "Log Healthy", "type": "main", "index": 0}],
+        [{"node": "Log Unhealthy", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

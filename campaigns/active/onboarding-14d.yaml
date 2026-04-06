@@ -1,0 +1,195 @@
+# 14-Day Onboarding Campaign — Test Campaign
+# This is the first real campaign to prove the stack works end-to-end.
+#
+# Triggers when new_lead tag appears.
+# Sends intro email, waits, branches on response, schedules social.
+# Stops if booked_call happens.
+
+id: "onboarding_14d_v1"
+name: "14 Day Onboarding"
+version: "v1"
+
+audience:
+  include_tags:
+    - "new_lead"
+  exclude_tags:
+    - "booked"
+    - "unsubscribed"
+
+entry_trigger:
+  type: "tag_added"
+  value: "new_lead"
+
+channels:
+  - "email"
+  - "social"
+
+steps:
+  # Step 1: Add campaign tag on entry
+  - id: "entry_tag"
+    type: "add_tag"
+    channel: "internal"
+    config:
+      tag: "campaign:onboarding"
+    next: "intro_email"
+
+  # Step 2: Send intro email
+  - id: "intro_email"
+    type: "send_email"
+    channel: "email"
+    config:
+      template_id: "onboarding_intro"
+      subject: "Welcome — here's what to expect"
+    next: "wait_2d"
+
+  # Step 3: Wait 2 days
+  - id: "wait_2d"
+    type: "wait"
+    channel: "internal"
+    delay:
+      value: 2
+      unit: "days"
+    next: "check_engagement"
+    branch_on_event: "email_clicked"
+
+  # Step 4: Check engagement branch point
+  - id: "check_engagement"
+    type: "branch"
+    channel: "internal"
+    config:
+      description: "Route based on user response after 2 days"
+    next: "no_response_reminder"
+
+  # Step 5a: If clicked → move to nurture
+  - id: "move_to_nurture"
+    type: "add_tag"
+    channel: "internal"
+    config:
+      tag: "campaign:nurture"
+    next: "social_post_1"
+
+  # Step 5b: If replied positive → sales follow-up
+  - id: "sales_followup"
+    type: "add_tag"
+    channel: "internal"
+    config:
+      tag: "qualified"
+    next: "social_post_1"
+
+  # Step 5c: If no response → reminder email
+  - id: "no_response_reminder"
+    type: "send_email"
+    channel: "email"
+    config:
+      template_id: "onboarding_reminder"
+      subject: "Did you see this? Quick reminder"
+    delay:
+      value: 0
+      unit: "minutes"
+    next: "wait_3d"
+
+  # Step 6: Wait 3 more days
+  - id: "wait_3d"
+    type: "wait"
+    channel: "internal"
+    delay:
+      value: 3
+      unit: "days"
+    next: "social_post_1"
+
+  # Step 7: Schedule first social post
+  - id: "social_post_1"
+    type: "schedule_social"
+    channel: "social"
+    config:
+      text: "Starting your journey? Here are the 3 things every new team needs to know. #onboarding #productivity"
+      channel_id: "BUFFER_CHANNEL_ID"
+    delay:
+      value: 1
+      unit: "days"
+    next: "social_post_2"
+
+  # Step 8: Schedule second social post
+  - id: "social_post_2"
+    type: "schedule_social"
+    channel: "social"
+    config:
+      text: "Week 2 tip: The fastest teams automate their first 5 processes within 14 days. Are you on track? #automation"
+      channel_id: "BUFFER_CHANNEL_ID"
+    delay:
+      value: 7
+      unit: "days"
+    next: "exit_tag"
+
+  # Step 9: Remove campaign tag on exit
+  - id: "exit_tag"
+    type: "remove_tag"
+    channel: "internal"
+    config:
+      tag: "campaign:onboarding"
+    next: "stop"
+
+  # Step 10: Stop
+  - id: "stop"
+    type: "stop"
+    channel: "internal"
+
+branch_rules:
+  # If email clicked after intro → nurture
+  - from_step: "wait_2d"
+    event: "email_clicked"
+    action: "goto_step"
+    target: "move_to_nurture"
+
+  # If replied positive → sales
+  - from_step: "wait_2d"
+    event: "reply_positive"
+    action: "goto_step"
+    target: "sales_followup"
+
+  # If no response after wait → reminder
+  - from_step: "wait_2d"
+    event: "no_response"
+    action: "goto_step"
+    target: "no_response_reminder"
+
+  # If booked at any point → stop campaign
+  - event: "booked_call"
+    action: "stop"
+    target: "exit_tag"
+
+  # If unsubscribed → stop immediately
+  - event: "unsubscribed"
+    action: "stop"
+    target: "exit_tag"
+
+exit_conditions:
+  - "booked_call"
+  - "unsubscribed"
+
+tags:
+  add_on_entry:
+    - "campaign:onboarding"
+  remove_on_exit:
+    - "campaign:onboarding"
+
+goals:
+  - "booked_call"
+
+schedule:
+  timezone: "America/Chicago"
+  send_window:
+    start_hour: 9
+    end_hour: 17
+  days_of_week:
+    - "mon"
+    - "tue"
+    - "wed"
+    - "thu"
+    - "fri"
+
+status: "draft"
+
+metadata:
+  created_at: "2026-04-06T00:00:00Z"
+  created_by: "agent"

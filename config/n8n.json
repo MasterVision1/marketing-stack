@@ -1,0 +1,24 @@
+{
+  "base_url": "http://localhost:5678",
+  "api_path": "/api/v1",
+  "webhook_path": "/webhook",
+  "workflow_tags": [
+    "health-check",
+    "enrollment",
+    "social-scheduler",
+    "branch-handler",
+    "deployment",
+    "logging",
+    "error-handling"
+  ],
+  "credential_types": [
+    "mauticApi",
+    "bufferApi",
+    "httpHeaderAuth"
+  ],
+  "endpoints": {
+    "workflows": "/api/v1/workflows",
+    "executions": "/api/v1/executions",
+    "credentials": "/api/v1/credentials"
+  }
+}

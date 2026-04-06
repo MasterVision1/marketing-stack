@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runmai.com/schemas/campaign.schema.json",
+  "title": "Marketing Campaign Specification",
+  "description": "Structured campaign spec. Agent must generate this before any compile or deploy step.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "audience",
+    "entry_trigger",
+    "channels",
+    "steps",
+    "branch_rules",
+    "exit_conditions",
+    "tags",
+    "goals",
+    "schedule",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Unique campaign identifier, snake_case"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Human-readable campaign name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+$",
+      "default": "v1",
+      "description": "Campaign version for rollback tracking"
+    },
+    "audience": {
+      "type": "object",
+      "required": ["include_tags"],
+      "properties": {
+        "include_tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Tags that qualify a contact for entry"
+        },
+        "exclude_tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags that disqualify a contact"
+        },
+        "segments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional Mautic segment filters"
+        }
+      }
+    },
+    "entry_trigger": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "tag_added",
+            "segment_entry",
+            "form_submit",
+            "webhook",
+            "manual"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "description": "Trigger identifier (tag name, segment name, form ID, etc.)"
+        }
+      }
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["email", "social", "sms", "webhook"]
+      },
+      "minItems": 1
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/step"
+      }
+    },
+    "branch_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/branch_rule"
+      }
+    },
+    "exit_conditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Events that remove a contact from this campaign"
+    },
+    "tags": {
+      "type": "object",
+      "properties": {
+        "add_on_entry": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "remove_on_exit": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "goals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Success events for this campaign"
+    },
+    "schedule": {
+      "type": "object",
+      "required": ["timezone"],
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "description": "IANA timezone identifier"
+        },
+        "send_window": {
+          "type": "object",
+          "properties": {
+            "start_hour": { "type": "integer", "minimum": 0, "maximum": 23 },
+            "end_hour": { "type": "integer", "minimum": 0, "maximum": 23 }
+          }
+        },
+        "days_of_week": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "validated", "compiled", "dry_run", "active", "paused", "completed", "archived"],
+      "description": "Campaign lifecycle state"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "rollback_from": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "step": {
+      "type": "object",
+      "required": ["id", "type", "channel"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique step identifier within this campaign"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "send_email",
+            "schedule_social",
+            "wait",
+            "add_tag",
+            "remove_tag",
+            "add_segment",
+            "remove_segment",
+            "update_contact",
+            "webhook",
+            "branch",
+            "stop"
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "enum": ["email", "social", "internal", "webhook"]
+        },
+        "delay": {
+          "type": "object",
+          "properties": {
+            "value": { "type": "integer", "minimum": 0 },
+            "unit": {
+              "type": "string",
+              "enum": ["minutes", "hours", "days"]
+            }
+          }
+        },
+        "config": {
+          "type": "object",
+          "description": "Step-specific configuration (template ID, post text, tag name, etc.)"
+        },
+        "next": {
+          "type": "string",
+          "description": "ID of next step (for linear flow)"
+        },
+        "branch_on_event": {
+          "type": "string",
+          "description": "Event name that triggers branching from this step"
+        }
+      }
+    },
+    "branch_rule": {
+      "type": "object",
+      "required": ["event", "action"],
+      "properties": {
+        "from_step": {
+          "type": "string",
+          "description": "Step ID this branch applies after"
+        },
+        "event": {
+          "type": "string",
+          "description": "Event that triggers this branch (from contact-event schema)"
+        },
+        "condition": {
+          "type": "object",
+          "description": "Optional additional conditions"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["goto_step", "stop", "add_tag", "move_segment", "notify"],
+          "description": "What to do when event fires"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target step ID, tag name, or segment name"
+        }
+      }
+    }
+  }
+}

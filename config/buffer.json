@@ -1,0 +1,16 @@
+{
+  "api_url": "https://api.bufferapp.com/1",
+  "endpoints": {
+    "user": "/user.json",
+    "profiles": "/profiles.json",
+    "updates_create": "/updates/create.json",
+    "updates_pending": "/profiles/{profile_id}/updates/pending.json",
+    "updates_sent": "/profiles/{profile_id}/updates/sent.json",
+    "update_destroy": "/updates/{update_id}/destroy.json",
+    "update_edit": "/updates/{update_id}/update.json"
+  },
+  "scheduling": {
+    "default_timezone": "America/Chicago",
+    "max_posts_per_batch": 10
+  }
+}

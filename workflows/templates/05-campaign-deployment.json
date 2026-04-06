@@ -1,0 +1,155 @@
+{
+  "name": "[Deploy] Campaign Deployment Workflow",
+  "tags": [{"name": "deployment"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deploy-campaign",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "Deploy Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "deploy-campaign"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.deployment_id}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.campaign_id}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.status}}", "value2": "compiled"}
+          ]
+        }
+      },
+      "id": "validate_deployment",
+      "name": "Valid Deployment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "phase", "value": "creating_mautic_assets"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "phase_mautic",
+      "name": "Phase: Mautic Assets",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "phase", "value": "creating_workflows"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "phase_workflows",
+      "name": "Phase: Create Workflows",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "phase", "value": "scheduling_social"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "phase_social",
+      "name": "Phase: Schedule Social",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "phase", "value": "activating"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "phase_activate",
+      "name": "Phase: Activate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1440, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "deployment_status", "value": "deployed"},
+            {"name": "deployment_id", "value": "={{$json.deployment_id}}"},
+            {"name": "campaign_id", "value": "={{$json.campaign_id}}"},
+            {"name": "completed_at", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "deployment_report",
+      "name": "Generate Deployment Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1680, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"deployed\",\"deployment_id\":\"{{$json.deployment_id}}\",\"campaign_id\":\"{{$json.campaign_id}}\"}"
+      },
+      "id": "respond_success",
+      "name": "Respond Deployed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1920, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Invalid deployment payload. Must be compiled first.\"}",
+        "responseCode": 400
+      },
+      "id": "respond_invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 450]
+    }
+  ],
+  "connections": {
+    "Deploy Webhook": {"main": [[{"node": "Valid Deployment?", "type": "main", "index": 0}]]},
+    "Valid Deployment?": {
+      "main": [
+        [{"node": "Phase: Mautic Assets", "type": "main", "index": 0}],
+        [{"node": "Respond Invalid", "type": "main", "index": 0}]
+      ]
+    },
+    "Phase: Mautic Assets": {"main": [[{"node": "Phase: Create Workflows", "type": "main", "index": 0}]]},
+    "Phase: Create Workflows": {"main": [[{"node": "Phase: Schedule Social", "type": "main", "index": 0}]]},
+    "Phase: Schedule Social": {"main": [[{"node": "Phase: Activate", "type": "main", "index": 0}]]},
+    "Phase: Activate": {"main": [[{"node": "Generate Deployment Report", "type": "main", "index": 0}]]},
+    "Generate Deployment Report": {"main": [[{"node": "Respond Deployed", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}
