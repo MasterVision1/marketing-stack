@@ -1,0 +1,249 @@
+{
+  "name": "[CRM] Dynamics 365 Event → Mautic Segment Router",
+  "tags": [{"name": "crm-sync"}, {"name": "branch-handler"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-event",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "CRM Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "crm-event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.event_type}}", "operation": "isNotEmpty"},
+            {"value1": "={{$json.email}}", "operation": "isNotEmpty"}
+          ]
+        }
+      },
+      "id": "validate_event",
+      "name": "Valid Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "rules": [
+            {"output": 0, "conditions": {"string": [{"value1": "={{$json.event_type}}", "value2": "client_activated"}]}},
+            {"output": 1, "conditions": {"string": [{"value1": "={{$json.event_type}}", "value2": "client_prospect"}]}},
+            {"output": 2, "conditions": {"string": [{"value1": "={{$json.event_type}}", "value2": "engagement_started"}]}},
+            {"output": 3, "conditions": {"string": [{"value1": "={{$json.event_type}}", "value2": "campaign_created"}]}},
+            {"output": 4, "conditions": {"string": [{"value1": "={{$json.event_type}}", "value2": "client_deactivated"}]}}
+          ],
+          "fallbackOutput": 5
+        }
+      },
+      "id": "route_event",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"tags\":[\"+qualified\",\"-new_lead\"]}",
+        "options": {"timeout": 15000}
+      },
+      "id": "tag_qualified",
+      "name": "Tag as Qualified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 50]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"tags\":[\"+new_lead\"]}",
+        "options": {"timeout": 15000}
+      },
+      "id": "tag_new_lead",
+      "name": "Tag as New Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 175]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"tags\":[\"+campaign:onboarding\"]}",
+        "options": {"timeout": 15000}
+      },
+      "id": "tag_onboarding",
+      "name": "Start Onboarding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"tags\":[\"+campaign:{{$json.campaign_name}}\"]}",
+        "options": {"timeout": 15000}
+      },
+      "id": "tag_campaign",
+      "name": "Add Campaign Tag",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 425]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"tags\":[\"+unsubscribed\",\"-qualified\",\"-new_lead\"]}",
+        "options": {"timeout": 15000}
+      },
+      "id": "tag_deactivated",
+      "name": "Mark Deactivated",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 550]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "crm_event_routed"},
+            {"name": "event_type", "value": "={{$node['CRM Event Webhook'].json.event_type}}"},
+            {"name": "email", "value": "={{$node['CRM Event Webhook'].json.email}}"},
+            {"name": "result", "value": "fallback_no_match"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_fallback",
+      "name": "Log Unknown Event",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 675]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "crm_event_processed"},
+            {"name": "event_type", "value": "={{$node['CRM Event Webhook'].json.event_type}}"},
+            {"name": "email", "value": "={{$node['CRM Event Webhook'].json.email}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1280, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"processed\",\"event_type\":\"{{$json.event_type}}\",\"email\":\"{{$json.email}}\"}"
+      },
+      "id": "respond_ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"Invalid event: event_type and email required\"}",
+        "responseCode": 400
+      },
+      "id": "respond_invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 500]
+    }
+  ],
+  "connections": {
+    "CRM Event Webhook": {"main": [[{"node": "Valid Event?", "type": "main", "index": 0}]]},
+    "Valid Event?": {
+      "main": [
+        [{"node": "Route by Event Type", "type": "main", "index": 0}],
+        [{"node": "Respond Invalid", "type": "main", "index": 0}]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{"node": "Tag as Qualified", "type": "main", "index": 0}],
+        [{"node": "Tag as New Lead", "type": "main", "index": 0}],
+        [{"node": "Start Onboarding", "type": "main", "index": 0}],
+        [{"node": "Add Campaign Tag", "type": "main", "index": 0}],
+        [{"node": "Mark Deactivated", "type": "main", "index": 0}],
+        [{"node": "Log Unknown Event", "type": "main", "index": 0}]
+      ]
+    },
+    "Tag as Qualified": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Tag as New Lead": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Start Onboarding": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Add Campaign Tag": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Mark Deactivated": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Log Unknown Event": {"main": [[{"node": "Respond OK", "type": "main", "index": 0}]]},
+    "Log Success": {"main": [[{"node": "Respond OK", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

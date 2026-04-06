@@ -67,6 +67,30 @@ else
     echo "  [SKIP] Buffer API — BUFFER_ACCESS_TOKEN not set"
 fi
 
+# Dynamics 365 / Dataverse (uses Azure CLI token)
+if [ -n "${DYNAMICS365_URL:-}" ] && [ "$DYNAMICS365_URL" != "CHANGE_ME_DYNAMICS365_URL" ]; then
+    D365_TOKEN=$(az account get-access-token --resource "${DYNAMICS365_URL}/" --query accessToken -o tsv 2>/dev/null || echo "")
+    if [ -n "$D365_TOKEN" ]; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+            "${DYNAMICS365_URL}/api/data/v9.2/WhoAmI" \
+            -H "Authorization: Bearer ${D365_TOKEN}" \
+            -H "OData-Version: 4.0" \
+            -H "Accept: application/json" 2>/dev/null || echo "000")
+        if [ "$HTTP_CODE" = "200" ]; then
+            echo "  [PASS] Dynamics 365 — authenticated, HTTP $HTTP_CODE"
+            PASS=$((PASS + 1))
+        else
+            echo "  [FAIL] Dynamics 365 — HTTP $HTTP_CODE (check az login)"
+            FAIL=$((FAIL + 1))
+        fi
+    else
+        echo "  [FAIL] Dynamics 365 — could not get Azure CLI token (run: az login)"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    echo "  [SKIP] Dynamics 365 — DYNAMICS365_URL not set"
+fi
+
 # Postgres
 if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-marketing_stack}" > /dev/null 2>&1; then
     echo "  [PASS] PostgreSQL — accepting connections"

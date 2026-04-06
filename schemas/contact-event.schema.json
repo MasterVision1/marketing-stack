@@ -34,7 +34,12 @@
         "page_visited",
         "campaign_entered",
         "campaign_exited",
-        "step_completed"
+        "step_completed",
+        "crm_client_created",
+        "crm_client_updated",
+        "crm_status_changed",
+        "crm_engagement_started",
+        "crm_campaign_created"
       ],
       "description": "Type of event that occurred"
     },
@@ -49,7 +54,7 @@
     },
     "source": {
       "type": "string",
-      "enum": ["mautic", "n8n", "buffer", "webhook", "manual"],
+      "enum": ["mautic", "n8n", "buffer", "dynamics365", "webhook", "manual"],
       "description": "System that generated this event"
     },
     "campaign_id": {
@@ -72,7 +77,10 @@
         "channel_id": { "type": "string" },
         "reply_text": { "type": "string" },
         "booking_url": { "type": "string" },
-        "form_id": { "type": "string" }
+        "form_id": { "type": "string" },
+        "crm_record_id": { "type": "string", "description": "Dynamics 365 record GUID" },
+        "crm_entity": { "type": "string", "description": "Dataverse table logical name" },
+        "crm_status": { "type": "string" }
       }
     },
     "metadata": {

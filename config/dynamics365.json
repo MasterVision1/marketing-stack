@@ -1,0 +1,87 @@
+{
+  "environment": "VisionOne-Dev",
+  "base_url": "https://org9c07232f.crm.dynamics.com",
+  "api_path": "/api/data/v9.2",
+  "auth_method": "azure_cli_token",
+  "solution_name": "ConsultingOpsCore",
+  "publisher_prefix": "vo",
+  "tables": {
+    "client": {
+      "logical_name": "vo_client",
+      "display_name": "Client",
+      "primary_field": "vo_name",
+      "key_columns": ["vo_name", "vo_contactemail", "vo_contactphone", "vo_industry", "vo_accountowner", "vo_status"],
+      "maps_to_mautic": "contact"
+    },
+    "engagement": {
+      "logical_name": "vo_engagement",
+      "display_name": "Engagement",
+      "primary_field": "vo_name"
+    },
+    "project": {
+      "logical_name": "vo_project",
+      "display_name": "Project",
+      "primary_field": "vo_name"
+    },
+    "marketing_campaign": {
+      "logical_name": "vo_marketingcampaign",
+      "display_name": "Marketing Campaign",
+      "primary_field": "vo_name",
+      "key_columns": ["vo_name", "vo_startdate", "vo_enddate", "vo_campaigntype", "vo_budget", "vo_status"],
+      "maps_to_mautic": "campaign"
+    },
+    "request": {
+      "logical_name": "vo_request",
+      "display_name": "Request",
+      "primary_field": "vo_name"
+    },
+    "scorecard": {
+      "logical_name": "vo_scorecard",
+      "display_name": "Scorecard",
+      "primary_field": "vo_name"
+    }
+  },
+  "field_mapping": {
+    "mautic_contact_to_crm_client": {
+      "firstname": "vo_name",
+      "email": "vo_contactemail",
+      "phone": "vo_contactphone",
+      "company": "vo_industry",
+      "owner_id": "vo_accountowner"
+    },
+    "crm_client_to_mautic_contact": {
+      "vo_name": "lastname",
+      "vo_contactemail": "email",
+      "vo_contactphone": "phone",
+      "vo_industry": "company"
+    }
+  },
+  "status_mapping": {
+    "mautic_tags_to_crm_status": {
+      "new_lead": 100000002,
+      "qualified": 100000000,
+      "unsubscribed": 100000001
+    },
+    "crm_status_to_mautic_tags": {
+      "100000000": "qualified",
+      "100000001": "unsubscribed",
+      "100000002": "new_lead"
+    }
+  },
+  "sync_rules": {
+    "direction": "bidirectional",
+    "mautic_to_crm_triggers": [
+      "contact_created",
+      "tag_added:qualified",
+      "tag_added:booked",
+      "booked_call"
+    ],
+    "crm_to_mautic_triggers": [
+      "client_status_changed",
+      "campaign_created",
+      "engagement_started"
+    ],
+    "conflict_resolution": "most_recent_wins",
+    "match_field": "email"
+  }
+}

@@ -9,11 +9,13 @@
     "branch-handler",
     "deployment",
     "logging",
-    "error-handling"
+    "error-handling",
+    "crm-sync"
   ],
   "credential_types": [
     "mauticApi",
     "bufferApi",
+    "dynamics365Api",
     "httpHeaderAuth"
   ],
   "endpoints": {

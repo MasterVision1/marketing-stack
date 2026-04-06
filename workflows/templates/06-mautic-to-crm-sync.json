@@ -1,0 +1,206 @@
+{
+  "name": "[Sync] Mautic Contact → Dynamics 365 Client",
+  "tags": [{"name": "crm-sync"}, {"name": "enrollment"}],
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mautic-to-crm",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook_trigger",
+      "name": "Mautic Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "mautic-to-crm"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{$json.contact.fields.core.email.value}}", "operation": "isNotEmpty"}
+          ]
+        }
+      },
+      "id": "has_email",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DYNAMICS365_URL}}/api/data/v9.2/vo_clients",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.DYNAMICS365_TOKEN}}"},
+            {"name": "OData-Version", "value": "4.0"},
+            {"name": "Accept", "value": "application/json"},
+            {"name": "Prefer", "value": "odata.maxpagesize=1"}
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "$filter", "value": "=vo_contactemail eq '{{$json.contact.fields.core.email.value}}'"},
+            {"name": "$select", "value": "vo_clientid,vo_name,vo_contactemail,vo_status"}
+          ]
+        },
+        "options": {"timeout": 15000}
+      },
+      "id": "find_existing_client",
+      "name": "Find CRM Client by Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {"value1": "={{$json.value.length}}", "operation": "larger", "value2": 0}
+          ]
+        }
+      },
+      "id": "client_exists",
+      "name": "Client Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DYNAMICS365_URL}}/api/data/v9.2/vo_clients({{$node['Find CRM Client by Email'].json.value[0].vo_clientid}})",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.DYNAMICS365_TOKEN}}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "OData-Version", "value": "4.0"},
+            {"name": "If-Match", "value": "*"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"vo_name\":\"{{$node['Mautic Webhook'].json.contact.fields.core.lastname.value || $node['Mautic Webhook'].json.contact.fields.core.firstname.value}}\",\"vo_contactphone\":\"{{$node['Mautic Webhook'].json.contact.fields.core.phone.value}}\",\"vo_industry\":\"{{$node['Mautic Webhook'].json.contact.fields.core.company.value}}\"}",
+        "options": {"timeout": 15000}
+      },
+      "id": "update_crm_client",
+      "name": "Update CRM Client",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 100]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DYNAMICS365_URL}}/api/data/v9.2/vo_clients",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Bearer {{$env.DYNAMICS365_TOKEN}}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "OData-Version", "value": "4.0"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"vo_name\":\"{{$node['Mautic Webhook'].json.contact.fields.core.lastname.value || $node['Mautic Webhook'].json.contact.fields.core.firstname.value}}\",\"vo_contactemail\":\"{{$node['Mautic Webhook'].json.contact.fields.core.email.value}}\",\"vo_contactphone\":\"{{$node['Mautic Webhook'].json.contact.fields.core.phone.value}}\",\"vo_industry\":\"{{$node['Mautic Webhook'].json.contact.fields.core.company.value}}\",\"vo_status\":100000002}",
+        "options": {"timeout": 15000}
+      },
+      "id": "create_crm_client",
+      "name": "Create CRM Client",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 350]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "crm_client_synced"},
+            {"name": "operation", "value": "update"},
+            {"name": "email", "value": "={{$node['Mautic Webhook'].json.contact.fields.core.email.value}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_update",
+      "name": "Log Update",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1440, 100]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "action", "value": "crm_client_synced"},
+            {"name": "operation", "value": "create"},
+            {"name": "email", "value": "={{$node['Mautic Webhook'].json.contact.fields.core.email.value}}"},
+            {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
+          ]
+        }
+      },
+      "id": "log_create",
+      "name": "Log Create",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1440, 350]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"synced\",\"operation\":\"{{$json.operation}}\",\"email\":\"{{$json.email}}\"}"
+      },
+      "id": "respond_synced",
+      "name": "Respond Synced",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"skipped\",\"reason\":\"no email on contact\"}",
+        "responseCode": 200
+      },
+      "id": "respond_skip",
+      "name": "Respond Skip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 450]
+    }
+  ],
+  "connections": {
+    "Mautic Webhook": {"main": [[{"node": "Has Email?", "type": "main", "index": 0}]]},
+    "Has Email?": {
+      "main": [
+        [{"node": "Find CRM Client by Email", "type": "main", "index": 0}],
+        [{"node": "Respond Skip", "type": "main", "index": 0}]
+      ]
+    },
+    "Find CRM Client by Email": {"main": [[{"node": "Client Exists?", "type": "main", "index": 0}]]},
+    "Client Exists?": {
+      "main": [
+        [{"node": "Update CRM Client", "type": "main", "index": 0}],
+        [{"node": "Create CRM Client", "type": "main", "index": 0}]
+      ]
+    },
+    "Update CRM Client": {"main": [[{"node": "Log Update", "type": "main", "index": 0}]]},
+    "Create CRM Client": {"main": [[{"node": "Log Create", "type": "main", "index": 0}]]},
+    "Log Update": {"main": [[{"node": "Respond Synced", "type": "main", "index": 0}]]},
+    "Log Create": {"main": [[{"node": "Respond Synced", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "timezone": "America/Chicago",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

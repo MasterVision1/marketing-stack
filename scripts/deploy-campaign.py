@@ -336,6 +336,30 @@ def dry_run(deployment, env):
     else:
         print("  [CHECK] Buffer API: SKIP (no token)")
 
+    # Check Dynamics 365
+    d365_url = env.get("DYNAMICS365_URL", "")
+    if d365_url and d365_url != "CHANGE_ME_DYNAMICS365_URL":
+        try:
+            import subprocess
+            token_result = subprocess.run(
+                ["az", "account", "get-access-token", "--resource", f"{d365_url}/", "--query", "accessToken", "-o", "tsv"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if token_result.returncode == 0 and token_result.stdout.strip():
+                d365_token = token_result.stdout.strip()
+                resp = requests.get(
+                    f"{d365_url}/api/data/v9.2/WhoAmI",
+                    headers={"Authorization": f"Bearer {d365_token}", "OData-Version": "4.0"},
+                    timeout=10,
+                )
+                print(f"  [CHECK] Dynamics 365: {'YES' if resp.status_code == 200 else 'NO'}")
+            else:
+                print("  [CHECK] Dynamics 365: NO (az login required)")
+        except Exception:
+            print("  [CHECK] Dynamics 365: NO")
+    else:
+        print("  [CHECK] Dynamics 365: SKIP (no URL)")
+
     # Enumerate what would be created
     for wf in deployment.get("n8n_workflows", []):
         print(f"  [WOULD CREATE] n8n workflow: {wf['name']} ({len(wf.get('nodes', []))} nodes)")
@@ -349,6 +373,9 @@ def dry_run(deployment, env):
 
     for tag in deployment.get("mautic_assets", {}).get("tags", []):
         print(f"  [WOULD ENSURE] Mautic tag: {tag}")
+
+    if d365_url and d365_url != "CHANGE_ME_DYNAMICS365_URL":
+        print(f"  [WOULD CREATE] D365 vo_MarketingCampaign: {deployment['campaign_name']}")
 
     print("\n  --- DRY RUN COMPLETE — Nothing was deployed ---")
     print(f"  To deploy live: python scripts/deploy-campaign.py --spec <same-spec> --live")
@@ -403,6 +430,41 @@ def deploy_live(deployment, env):
         except requests.RequestException as e:
             print(f"  [FAIL] Workflow: {wf['name']} — {e}")
             results["errors"].append(str(e))
+
+    # Deploy Dynamics 365 marketing campaign record
+    d365_url = env.get("DYNAMICS365_URL", "")
+    if d365_url and d365_url != "CHANGE_ME_DYNAMICS365_URL":
+        try:
+            import subprocess
+            token_result = subprocess.run(
+                ["az", "account", "get-access-token", "--resource", f"{d365_url}/", "--query", "accessToken", "-o", "tsv"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if token_result.returncode == 0 and token_result.stdout.strip():
+                d365_token = token_result.stdout.strip()
+                campaign_payload = {
+                    "vo_name": deployment["campaign_name"],
+                    "vo_campaignid_external": deployment["campaign_id"],
+                    "vo_status": 100000000,  # Active
+                }
+                resp = requests.post(
+                    f"{d365_url}/api/data/v9.2/vo_marketingcampaigns",
+                    json=campaign_payload,
+                    headers={
+                        "Authorization": f"Bearer {d365_token}",
+                        "OData-Version": "4.0",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=15,
+                )
+                if resp.status_code in (200, 201, 204):
+                    print(f"  [DEPLOYED] D365 MarketingCampaign: {deployment['campaign_name']}")
+                else:
+                    print(f"  [WARN] D365 campaign creation: HTTP {resp.status_code}")
+            else:
+                print("  [SKIP] D365 campaign — no Azure CLI token")
+        except Exception as e:
+            print(f"  [WARN] D365 campaign creation failed: {e}")
 
     # Write deployment report
     report_path = COMPILED_DIR / f"{deployment['campaign_id']}_{deployment['version']}_report.json"

@@ -117,11 +117,39 @@ else
     echo "  [WARN] Buffer credential — HTTP $BUFFER_HTTP (may need manual setup)"
 fi
 
+# Dynamics 365 API credential
+D365_CRED_PAYLOAD=$(cat <<'EOF'
+{
+  "name": "Dynamics 365 Dataverse API",
+  "type": "httpHeaderAuth",
+  "data": {
+    "name": "Authorization",
+    "value": "Bearer PLACEHOLDER_TOKEN"
+  }
+}
+EOF
+)
+
+D365_RESP=$(curl -s -w "\n%{http_code}" -X POST \
+    -u "$N8N_USER:$N8N_PASS" \
+    -H "Content-Type: application/json" \
+    -d "$D365_CRED_PAYLOAD" \
+    "$N8N_URL/api/v1/credentials" 2>/dev/null || echo "")
+
+D365_HTTP=$(echo "$D365_RESP" | tail -1)
+if [ "$D365_HTTP" = "200" ] || [ "$D365_HTTP" = "201" ]; then
+    echo "  [OK] Created credential: Dynamics 365 Dataverse API"
+elif [ "$D365_HTTP" = "409" ]; then
+    echo "  [SKIP] Credential 'Dynamics 365 Dataverse API' already exists"
+else
+    echo "  [WARN] D365 credential — HTTP $D365_HTTP (may need manual setup)"
+fi
+
 # ---- Step 5: Create workflow tag structure ----
 echo ""
 echo "[5/6] Creating workflow tag structure..."
 
-TAGS=("health-check" "enrollment" "social-scheduler" "branch-handler" "deployment" "logging" "error-handling")
+TAGS=("health-check" "enrollment" "social-scheduler" "branch-handler" "deployment" "logging" "error-handling" "crm-sync")
 
 for TAG in "${TAGS[@]}"; do
     TAG_RESP=$(curl -s -w "\n%{http_code}" -X POST \
