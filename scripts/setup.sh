@@ -62,9 +62,8 @@ INTERVAL=10
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     POSTGRES_OK=$(docker compose ps postgres --format json 2>/dev/null | grep -c '"healthy"' || echo "0")
     N8N_OK=$(docker compose ps n8n --format json 2>/dev/null | grep -c '"healthy"' || echo "0")
-    REDIS_OK=$(docker compose ps redis --format json 2>/dev/null | grep -c '"healthy"' || echo "0")
 
-    if [ "$POSTGRES_OK" -ge 1 ] && [ "$N8N_OK" -ge 1 ] && [ "$REDIS_OK" -ge 1 ]; then
+    if [ "$POSTGRES_OK" -ge 1 ] && [ "$N8N_OK" -ge 1 ]; then
         echo "  All core services healthy."
         break
     fi
@@ -85,9 +84,9 @@ bash "$SCRIPT_DIR/check-health.sh"
 echo ""
 echo "=== Setup complete ==="
 echo "  n8n:    http://localhost:${N8N_PORT:-5678}"
-echo "  Mautic: http://localhost:${MAUTIC_PORT:-8080}"
 echo ""
 echo "Next steps:"
 echo "  1. bash scripts/bootstrap-n8n.sh"
-echo "  2. python scripts/bootstrap-mautic.py"
+echo "  2. python scripts/bootstrap-sendgrid.py"
 echo "  3. python scripts/bootstrap-buffer.py"
+echo "  4. python scripts/bootstrap-dynamics365.py"

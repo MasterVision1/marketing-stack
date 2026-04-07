@@ -13,7 +13,7 @@
     "crm-sync"
   ],
   "credential_types": [
-    "mauticApi",
+    "sendGridApi",
     "bufferApi",
     "dynamics365Api",
     "httpHeaderAuth"

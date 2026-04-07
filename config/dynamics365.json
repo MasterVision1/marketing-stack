@@ -18,7 +18,7 @@
         "vo_accountowner",
         "vo_status"
       ],
-      "maps_to_mautic": "contact"
+      "maps_to_sendgrid": "contact"
     },
     "engagement": {
       "logical_name": "vo_engagement",
@@ -42,7 +42,7 @@
         "vo_budget",
         "vo_status"
       ],
-      "maps_to_mautic": "campaign"
+      "maps_to_sendgrid": "single_send"
     },
     "request": {
       "logical_name": "vo_request",
@@ -56,27 +56,27 @@
     }
   },
   "field_mapping": {
-    "mautic_contact_to_crm_client": {
-      "firstname": "vo_name",
+    "sendgrid_contact_to_crm_client": {
+      "first_name": "vo_name",
       "email": "vo_contactemail",
-      "phone": "vo_contactphone",
+      "phone_number": "vo_contactphone",
       "company": "vo_industry",
       "owner_id": "vo_accountowner"
     },
-    "crm_client_to_mautic_contact": {
-      "vo_name": "lastname",
+    "crm_client_to_sendgrid_contact": {
+      "vo_name": "last_name",
       "vo_contactemail": "email",
-      "vo_contactphone": "phone",
+      "vo_contactphone": "phone_number",
       "vo_industry": "company"
     }
   },
   "status_mapping": {
-    "mautic_tags_to_crm_status": {
+    "sendgrid_tags_to_crm_status": {
       "new_lead": 100000002,
       "qualified": 100000000,
       "unsubscribed": 100000001
     },
-    "crm_status_to_mautic_tags": {
+    "crm_status_to_sendgrid_tags": {
       "100000000": "qualified",
       "100000001": "unsubscribed",
       "100000002": "new_lead"
@@ -84,13 +84,13 @@
   },
   "sync_rules": {
     "direction": "bidirectional",
-    "mautic_to_crm_triggers": [
+    "sendgrid_to_crm_triggers": [
       "contact_created",
-      "tag_added:qualified",
-      "tag_added:booked",
-      "booked_call"
+      "email_opened",
+      "email_clicked",
+      "form_submitted"
     ],
-    "crm_to_mautic_triggers": [
+    "crm_to_sendgrid_triggers": [
       "client_status_changed",
       "campaign_created",
       "engagement_started"

@@ -36,13 +36,13 @@
       "parameters": {
         "values": {
           "string": [
-            {"name": "phase", "value": "creating_mautic_assets"},
+            {"name": "phase", "value": "creating_sendgrid_assets"},
             {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
           ]
         }
       },
-      "id": "phase_mautic",
-      "name": "Phase: Mautic Assets",
+      "id": "phase_sendgrid",
+      "name": "Phase: SendGrid Assets",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
       "position": [720, 200]
@@ -137,11 +137,11 @@
     "Deploy Webhook": {"main": [[{"node": "Valid Deployment?", "type": "main", "index": 0}]]},
     "Valid Deployment?": {
       "main": [
-        [{"node": "Phase: Mautic Assets", "type": "main", "index": 0}],
+        [{"node": "Phase: SendGrid Assets", "type": "main", "index": 0}],
         [{"node": "Respond Invalid", "type": "main", "index": 0}]
       ]
     },
-    "Phase: Mautic Assets": {"main": [[{"node": "Phase: Create Workflows", "type": "main", "index": 0}]]},
+    "Phase: SendGrid Assets": {"main": [[{"node": "Phase: Create Workflows", "type": "main", "index": 0}]]},
     "Phase: Create Workflows": {"main": [[{"node": "Phase: Schedule Social", "type": "main", "index": 0}]]},
     "Phase: Schedule Social": {"main": [[{"node": "Phase: Activate", "type": "main", "index": 0}]]},
     "Phase: Activate": {"main": [[{"node": "Generate Deployment Report", "type": "main", "index": 0}]]},

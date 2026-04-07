@@ -1,5 +1,5 @@
 {
-  "name": "[CRM] Dynamics 365 Event → Mautic Segment Router",
+  "name": "[CRM] Dynamics 365 Event → SendGrid Contact Router",
   "tags": [{"name": "crm-sync"}, {"name": "branch-handler"}],
   "active": false,
   "nodes": [
@@ -53,108 +53,103 @@
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
-        "method": "PATCH",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
-          ]
-        },
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "{\"tags\":[\"+qualified\",\"-new_lead\"]}",
+        "jsonBody": "={\"list_ids\":[\"{{$env.SENDGRID_LIST_QUALIFIED}}\"],\"contacts\":[{\"email\":\"{{$json.email}}\",\"custom_fields\":{\"status\":\"qualified\"}}]}",
         "options": {"timeout": 15000}
       },
       "id": "tag_qualified",
-      "name": "Tag as Qualified",
+      "name": "Add to Qualified List",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1000, 50]
+      "position": [1000, 50],
+      "credentials": {
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
+      }
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
-        "method": "PATCH",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
-          ]
-        },
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "{\"tags\":[\"+new_lead\"]}",
+        "jsonBody": "={\"list_ids\":[\"{{$env.SENDGRID_LIST_NEW_LEADS}}\"],\"contacts\":[{\"email\":\"{{$json.email}}\",\"custom_fields\":{\"status\":\"new_lead\"}}]}",
         "options": {"timeout": 15000}
       },
       "id": "tag_new_lead",
-      "name": "Tag as New Lead",
+      "name": "Add to New Leads List",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1000, 175]
+      "position": [1000, 175],
+      "credentials": {
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
+      }
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
-        "method": "PATCH",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
-          ]
-        },
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "{\"tags\":[\"+campaign:onboarding\"]}",
+        "jsonBody": "={\"list_ids\":[\"{{$env.SENDGRID_LIST_ONBOARDING}}\"],\"contacts\":[{\"email\":\"{{$json.email}}\",\"custom_fields\":{\"status\":\"onboarding\"}}]}",
         "options": {"timeout": 15000}
       },
       "id": "tag_onboarding",
       "name": "Start Onboarding",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1000, 300]
+      "position": [1000, 300],
+      "credentials": {
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
+      }
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
-        "method": "PATCH",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
-          ]
-        },
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "={\"tags\":[\"+campaign:{{$json.campaign_name}}\"]}",
+        "jsonBody": "={\"contacts\":[{\"email\":\"{{$json.email}}\",\"custom_fields\":{\"campaign\":\"{{$json.campaign_name}}\"}}]}",
         "options": {"timeout": 15000}
       },
       "id": "tag_campaign",
-      "name": "Add Campaign Tag",
+      "name": "Set Campaign Field",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1000, 425]
+      "position": [1000, 425],
+      "credentials": {
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
+      }
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.mautic_contact_id}}/edit",
-        "method": "PATCH",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {"name": "Authorization", "value": "=Bearer {{$env.MAUTIC_API_TOKEN}}"}
-          ]
-        },
+        "url": "https://api.sendgrid.com/v3/asm/groups/{{$env.SENDGRID_SUPPRESSION_ALL}}/suppressions",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "{\"tags\":[\"+unsubscribed\",\"-qualified\",\"-new_lead\"]}",
+        "jsonBody": "={\"recipient_emails\":[\"{{$json.email}}\"]}",
         "options": {"timeout": 15000}
       },
       "id": "tag_deactivated",
-      "name": "Mark Deactivated",
+      "name": "Add to Suppression Group",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1000, 550]
+      "position": [1000, 550],
+      "credentials": {
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
+      }
     },
     {
       "parameters": {
@@ -225,19 +220,19 @@
     },
     "Route by Event Type": {
       "main": [
-        [{"node": "Tag as Qualified", "type": "main", "index": 0}],
-        [{"node": "Tag as New Lead", "type": "main", "index": 0}],
+        [{"node": "Add to Qualified List", "type": "main", "index": 0}],
+        [{"node": "Add to New Leads List", "type": "main", "index": 0}],
         [{"node": "Start Onboarding", "type": "main", "index": 0}],
-        [{"node": "Add Campaign Tag", "type": "main", "index": 0}],
-        [{"node": "Mark Deactivated", "type": "main", "index": 0}],
+        [{"node": "Set Campaign Field", "type": "main", "index": 0}],
+        [{"node": "Add to Suppression Group", "type": "main", "index": 0}],
         [{"node": "Log Unknown Event", "type": "main", "index": 0}]
       ]
     },
-    "Tag as Qualified": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
-    "Tag as New Lead": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Add to Qualified List": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Add to New Leads List": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
     "Start Onboarding": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
-    "Add Campaign Tag": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
-    "Mark Deactivated": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Set Campaign Field": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
+    "Add to Suppression Group": {"main": [[{"node": "Log Success", "type": "main", "index": 0}]]},
     "Log Unknown Event": {"main": [[{"node": "Respond OK", "type": "main", "index": 0}]]},
     "Log Success": {"main": [[{"node": "Respond OK", "type": "main", "index": 0}]]}
   },

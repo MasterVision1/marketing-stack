@@ -145,22 +145,22 @@
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.contact_id}}/edit",
-        "method": "PATCH",
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "body": {
-          "tags": ["={{$json.next_tag}}"]
+          "contacts": [{"email": "={{$json.contact_email}}", "custom_fields": {"tag": "={{$json.next_tag}}"}}]
         },
         "options": {"timeout": 15000}
       },
       "id": "apply_tag",
-      "name": "Apply Tag in Mautic",
+      "name": "Update Contact in SendGrid",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [1280, 300],
       "credentials": {
-        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
       }
     },
     {
@@ -222,13 +222,13 @@
         [{"node": "Unsubscribed → Stop All", "type": "main", "index": 0}]
       ]
     },
-    "Reply Positive → Sales": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "Reply Negative → Log": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "Click → Nurture": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "Booked → Stop & Tag": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "No Response → Reminder": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "Unsubscribed → Stop All": {"main": [[{"node": "Apply Tag in Mautic", "type": "main", "index": 0}]]},
-    "Apply Tag in Mautic": {"main": [[{"node": "Log Outcome", "type": "main", "index": 0}]]},
+    "Reply Positive → Sales": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "Reply Negative → Log": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "Click → Nurture": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "Booked → Stop & Tag": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "No Response → Reminder": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "Unsubscribed → Stop All": {"main": [[{"node": "Update Contact in SendGrid", "type": "main", "index": 0}]]},
+    "Update Contact in SendGrid": {"main": [[{"node": "Log Outcome", "type": "main", "index": 0}]]},
     "Log Outcome": {"main": [[{"node": "Respond Handled", "type": "main", "index": 0}]]}
   },
   "settings": {

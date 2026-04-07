@@ -29,18 +29,18 @@
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts?limit=1",
+        "url": "https://api.sendgrid.com/v3/scopes",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {"timeout": 10000}
       },
-      "id": "check_mautic",
-      "name": "Check Mautic API",
+      "id": "check_sendgrid",
+      "name": "Check SendGrid API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [480, 300],
       "credentials": {
-        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
       }
     },
     {
@@ -59,7 +59,7 @@
         "conditions": {
           "boolean": [
             {"value1": "={{$node['Check n8n'].json.status}}", "value2": "ok"},
-            {"value1": "={{$node['Check Mautic API'].json.contacts}}", "operation": "exists"},
+            {"value1": "={{$node['Check SendGrid API'].json.scopes}}", "operation": "exists"},
             {"value1": "={{$node['Check Buffer API'].json.id}}", "operation": "exists"}
           ]
         }
@@ -77,7 +77,7 @@
             {"name": "status", "value": "healthy"},
             {"name": "timestamp", "value": "={{new Date().toISOString()}}"},
             {"name": "n8n", "value": "ok"},
-            {"name": "mautic", "value": "ok"},
+            {"name": "sendgrid", "value": "ok"},
             {"name": "buffer", "value": "ok"}
           ]
         }
@@ -109,12 +109,12 @@
     "Every 30 Minutes": {
       "main": [[
         {"node": "Check n8n", "type": "main", "index": 0},
-        {"node": "Check Mautic API", "type": "main", "index": 0},
+        {"node": "Check SendGrid API", "type": "main", "index": 0},
         {"node": "Check Buffer API", "type": "main", "index": 0}
       ]]
     },
     "Check n8n": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
-    "Check Mautic API": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
+    "Check SendGrid API": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
     "Check Buffer API": {"main": [[{"node": "All Healthy?", "type": "main", "index": 0}]]},
     "All Healthy?": {
       "main": [

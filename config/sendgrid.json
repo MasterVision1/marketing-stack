@@ -1,0 +1,36 @@
+{
+  "api_url": "https://api.sendgrid.com",
+  "api_version": "v3",
+  "auth_method": "bearer_header",
+  "from_email": "RunmAiSupport@visiononeperformance.com",
+  "from_name": "VisionOne Performance",
+  "endpoints": {
+    "send": "/v3/mail/send",
+    "contacts": "/v3/marketing/contacts",
+    "lists": "/v3/marketing/lists",
+    "segments": "/v3/marketing/segments/2.0",
+    "single_sends": "/v3/marketing/singlesends",
+    "templates": "/v3/templates",
+    "stats": "/v3/stats"
+  },
+  "existing_templates": {
+    "user_invite": "from RunmAi app (Azure Key Vault)",
+    "password_reset": "from RunmAi app",
+    "welcome": "from RunmAi app",
+    "email_verification": "from RunmAi app",
+    "note": "13 dynamic templates already configured in RunmAi api/local.settings.json"
+  },
+  "marketing_templates_to_create": [
+    "weekly-newsletter",
+    "onboarding-drip-day1",
+    "onboarding-drip-day3",
+    "onboarding-drip-day7",
+    "onboarding-drip-day14",
+    "reactivation-nudge",
+    "case-study-share"
+  ],
+  "suppression_groups": {
+    "marketing": "Marketing emails (newsletters, campaigns)",
+    "product_updates": "Product updates and feature announcements"
+  }
+}

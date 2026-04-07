@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   # ──────────────────────────────────────────
-  # PostgreSQL — shared database for n8n + Mautic
+  # PostgreSQL — n8n database
   # ──────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
@@ -22,21 +22,9 @@ services:
       retries: 5
 
   # ──────────────────────────────────────────
-  # Redis — Mautic queue backend
-  # ──────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ──────────────────────────────────────────
-  # n8n — workflow orchestration
+  # n8n — workflow orchestration engine
+  # Receives triggers from OpenClaw via webhooks
+  # Calls: D365 API, SendGrid API, Buffer GraphQL
   # ──────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
@@ -75,42 +63,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # ──────────────────────────────────────────
-  # Mautic — marketing automation backend
-  # ──────────────────────────────────────────
-  mautic:
-    image: mautic/mautic:latest
-    restart: unless-stopped
-    environment:
-      - MAUTIC_DB_HOST=postgres
-      - MAUTIC_DB_PORT=5432
-      - MAUTIC_DB_NAME=mautic
-      - MAUTIC_DB_USER=${POSTGRES_USER}
-      - MAUTIC_DB_PASSWORD=${POSTGRES_PASSWORD}
-      - MAUTIC_DB_DRIVER=pdo_pgsql
-      - MAUTIC_ADMIN_EMAIL=${MAUTIC_ADMIN_EMAIL:-admin@example.com}
-      - MAUTIC_ADMIN_PASSWORD=${MAUTIC_ADMIN_PASSWORD}
-      - MAUTIC_SECRET_KEY=${MAUTIC_SECRET_KEY}
-      - MAUTIC_URL=${MAUTIC_URL:-http://localhost:8080}
-      - MAUTIC_TRUSTED_PROXIES=["0.0.0.0/0"]
-    ports:
-      - "${MAUTIC_PORT:-8080}:80"
-    volumes:
-      - mautic_data:/var/www/html
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
-
 volumes:
   postgres_data:
   n8n_data:
-  mautic_data:
-  redis_data:

@@ -1,0 +1,116 @@
+// openclaw.json — OpenClaw Gateway configuration for marketing automation
+// Runs the 24/7 autonomous marketing agent
+// Docs: https://docs.openclaw.ai/gateway/configuration-reference
+{
+  // Agent configuration
+  agents: {
+    defaults: {
+      workspace: "~/.openclaw/workspace-marketing",
+      model: {
+        // Use local Ollama for routine 24/7 tasks ($0 cost)
+        primary: "ollama/gemma3:4b",
+        // Fall back to Claude for complex reasoning (only when needed)
+        fallbacks: ["anthropic/claude-sonnet-4-6"],
+      },
+      // Heartbeat: periodic autonomous check-ins
+      heartbeat: {
+        every: "30m",
+        model: "ollama/gemma3:4b",
+        lightContext: true,
+        isolatedSession: true,
+        target: "none",
+      },
+      skills: ["marketing-content", "lead-qualifier", "campaign-monitor", "social-planner", "email-drip"],
+      userTimezone: "America/Chicago",
+    },
+  },
+
+  // Cron jobs: scheduled marketing automation
+  cron: {
+    enabled: true,
+    maxConcurrentRuns: 2,
+    jobs: {
+      // Daily morning: plan today's social content
+      "daily-content-plan": {
+        schedule: "0 7 * * *",
+        prompt: "Review today's marketing calendar. Draft social media posts for Buffer. Check D365 for any new leads that need welcome sequences. Summarize what you plan to do today.",
+        model: "ollama/gemma3:4b",
+        sessionTarget: "isolated",
+      },
+      // Every 2 hours during business: check for new leads
+      "lead-check": {
+        schedule: "0 8-18/2 * * 1-5",
+        prompt: "Query D365 for new vo_client records created in the last 2 hours. For each new lead, trigger the onboarding email sequence via n8n webhook.",
+        model: "ollama/gemma3:4b",
+        sessionTarget: "isolated",
+      },
+      // Weekly Monday: generate newsletter content
+      "weekly-newsletter": {
+        schedule: "0 9 * * 1",
+        prompt: "Generate this week's newsletter content. Pull recent case studies and wins from D365. Draft the email and prepare it for SendGrid via n8n.",
+        model: "ollama/gemma3:4b",
+        sessionTarget: "isolated",
+      },
+      // Daily evening: campaign performance review
+      "daily-review": {
+        schedule: "0 18 * * 1-5",
+        prompt: "Pull today's marketing metrics: SendGrid email stats, Buffer post engagement, D365 pipeline changes. Write a brief daily summary to memory.",
+        model: "ollama/gemma3:4b",
+        sessionTarget: "isolated",
+      },
+    },
+  },
+
+  // Hooks: receive webhooks from n8n and external services
+  hooks: {
+    enabled: true,
+    token: "${OPENCLAW_HOOK_TOKEN}",
+    path: "/hooks",
+    mappings: [
+      {
+        match: { path: "n8n-callback" },
+        action: "agent",
+        wakeMode: "now",
+        name: "n8n Callback",
+        messageTemplate: "n8n workflow result: {{body}}",
+      },
+      {
+        match: { path: "new-lead" },
+        action: "agent",
+        wakeMode: "now",
+        name: "New Lead Alert",
+        messageTemplate: "New lead from D365: {{body.name}} ({{body.email}}). Start the welcome sequence.",
+      },
+    ],
+  },
+
+  // Tools available to the agent
+  tools: {
+    profile: "coding",
+    web: {
+      search: { enabled: true },
+      fetch: { enabled: true },
+    },
+    exec: {
+      backgroundMs: 10000,
+      timeoutSec: 300,
+    },
+  },
+
+  // Model providers
+  models: {
+    providers: {
+      ollama: {
+        baseUrl: "http://127.0.0.1:11434",
+        apiKey: "ollama-local",
+        api: "ollama",
+      },
+    },
+  },
+
+  // Gateway settings
+  gateway: {
+    port: 18789,
+    bind: "loopback",
+  },
+}

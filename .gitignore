@@ -5,7 +5,7 @@
 
 # Docker volumes
 n8n_data/
-mautic_data/
+# Docker volumes (not tracked)
 postgres_data/
 redis_data/
 

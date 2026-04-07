@@ -1,26 +1,26 @@
 {
-  "name": "[Sync] Mautic Contact → Dynamics 365 Client",
+  "name": "[Sync] SendGrid Contact → Dynamics 365 Client",
   "tags": [{"name": "crm-sync"}, {"name": "enrollment"}],
   "active": false,
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "mautic-to-crm",
+        "path": "sendgrid-to-crm",
         "responseMode": "responseNode"
       },
       "id": "webhook_trigger",
-      "name": "Mautic Webhook",
+      "name": "SendGrid Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300],
-      "webhookId": "mautic-to-crm"
+      "webhookId": "sendgrid-to-crm"
     },
     {
       "parameters": {
         "conditions": {
           "string": [
-            {"value1": "={{$json.contact.fields.core.email.value}}", "operation": "isNotEmpty"}
+            {"value1": "={{$json.email}}", "operation": "isNotEmpty"}
           ]
         }
       },
@@ -46,7 +46,7 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {"name": "$filter", "value": "=vo_contactemail eq '{{$json.contact.fields.core.email.value}}'"},
+            {"name": "$filter", "value": "=vo_contactemail eq '{{$json.email}}'"},
             {"name": "$select", "value": "vo_clientid,vo_name,vo_contactemail,vo_status"}
           ]
         },
@@ -87,7 +87,7 @@
         },
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "={\"vo_name\":\"{{$node['Mautic Webhook'].json.contact.fields.core.lastname.value || $node['Mautic Webhook'].json.contact.fields.core.firstname.value}}\",\"vo_contactphone\":\"{{$node['Mautic Webhook'].json.contact.fields.core.phone.value}}\",\"vo_industry\":\"{{$node['Mautic Webhook'].json.contact.fields.core.company.value}}\"}",
+        "jsonBody": "={\"vo_name\":\"{{$node['SendGrid Webhook'].json.last_name || $node['SendGrid Webhook'].json.first_name}}\",\"vo_contactphone\":\"{{$node['SendGrid Webhook'].json.phone_number}}\",\"vo_industry\":\"{{$node['SendGrid Webhook'].json.company}}\"}",
         "options": {"timeout": 15000}
       },
       "id": "update_crm_client",
@@ -111,7 +111,7 @@
         },
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "={\"vo_name\":\"{{$node['Mautic Webhook'].json.contact.fields.core.lastname.value || $node['Mautic Webhook'].json.contact.fields.core.firstname.value}}\",\"vo_contactemail\":\"{{$node['Mautic Webhook'].json.contact.fields.core.email.value}}\",\"vo_contactphone\":\"{{$node['Mautic Webhook'].json.contact.fields.core.phone.value}}\",\"vo_industry\":\"{{$node['Mautic Webhook'].json.contact.fields.core.company.value}}\",\"vo_status\":100000002}",
+        "jsonBody": "={\"vo_name\":\"{{$node['SendGrid Webhook'].json.last_name || $node['SendGrid Webhook'].json.first_name}}\",\"vo_contactemail\":\"{{$node['SendGrid Webhook'].json.email}}\",\"vo_contactphone\":\"{{$node['SendGrid Webhook'].json.phone_number}}\",\"vo_industry\":\"{{$node['SendGrid Webhook'].json.company}}\",\"vo_status\":100000002}",
         "options": {"timeout": 15000}
       },
       "id": "create_crm_client",
@@ -126,7 +126,7 @@
           "string": [
             {"name": "action", "value": "crm_client_synced"},
             {"name": "operation", "value": "update"},
-            {"name": "email", "value": "={{$node['Mautic Webhook'].json.contact.fields.core.email.value}}"},
+            {"name": "email", "value": "={{$node['SendGrid Webhook'].json.email}}"},
             {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
           ]
         }
@@ -143,7 +143,7 @@
           "string": [
             {"name": "action", "value": "crm_client_synced"},
             {"name": "operation", "value": "create"},
-            {"name": "email", "value": "={{$node['Mautic Webhook'].json.contact.fields.core.email.value}}"},
+            {"name": "email", "value": "={{$node['SendGrid Webhook'].json.email}}"},
             {"name": "timestamp", "value": "={{new Date().toISOString()}}"}
           ]
         }
@@ -179,7 +179,7 @@
     }
   ],
   "connections": {
-    "Mautic Webhook": {"main": [[{"node": "Has Email?", "type": "main", "index": 0}]]},
+    "SendGrid Webhook": {"main": [[{"node": "Has Email?", "type": "main", "index": 0}]]},
     "Has Email?": {
       "main": [
         [{"node": "Find CRM Client by Email", "type": "main", "index": 0}],

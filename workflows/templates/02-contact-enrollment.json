@@ -33,39 +33,43 @@
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/contacts/{{$json.contact_id}}/edit",
-        "method": "PATCH",
+        "url": "https://api.sendgrid.com/v3/marketing/contacts",
+        "method": "PUT",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "body": {
-          "tags": ["={{$json.campaign_tag}}"]
+          "list_ids": ["={{$json.list_id}}"],
+          "contacts": [{"email": "={{$json.email}}", "custom_fields": {"campaign_tag": "={{$json.campaign_tag}}"}}]
         },
         "options": {"timeout": 15000}
       },
       "id": "update_contact",
-      "name": "Update Contact in Mautic",
+      "name": "Add Contact to SendGrid",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [720, 200],
       "credentials": {
-        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
       }
     },
     {
       "parameters": {
-        "url": "={{$env.MAUTIC_URL}}/api/segments/{{$json.segment_id}}/contact/{{$json.contact_id}}/add",
-        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/marketing/lists/{{$json.segment_id}}/contacts",
+        "method": "PUT",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contact_ids": ["={{$json.contact_id}}"]
+        },
         "options": {"timeout": 15000}
       },
       "id": "add_to_segment",
-      "name": "Add to Segment",
+      "name": "Add to List",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [960, 200],
       "credentials": {
-        "httpHeaderAuth": {"id": "MAUTIC_CRED_ID", "name": "Mautic Marketing API"}
+        "httpHeaderAuth": {"id": "SENDGRID_CRED_ID", "name": "SendGrid Email API"}
       }
     },
     {
@@ -113,11 +117,11 @@
     "Enrollment Webhook": {"main": [[{"node": "Valid Payload?", "type": "main", "index": 0}]]},
     "Valid Payload?": {
       "main": [
-        [{"node": "Update Contact in Mautic", "type": "main", "index": 0}],
+        [{"node": "Add Contact to SendGrid", "type": "main", "index": 0}],
         [{"node": "Respond Error", "type": "main", "index": 0}]
       ]
     },
-    "Update Contact in Mautic": {"main": [[{"node": "Add to Segment", "type": "main", "index": 0}]]},
+    "Add Contact to SendGrid": {"main": [[{"node": "Add to List", "type": "main", "index": 0}]]},
     "Add to Segment": {"main": [[{"node": "Log Enrollment", "type": "main", "index": 0}]]},
     "Log Enrollment": {"main": [[{"node": "Respond Success", "type": "main", "index": 0}]]}
   },

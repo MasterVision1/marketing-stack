@@ -18,7 +18,8 @@ if [ -f ".env" ]; then
 fi
 
 N8N_URL="${N8N_PROTOCOL:-http}://${N8N_HOST:-localhost}:${N8N_PORT:-5678}"
-MAUTIC_URL="${MAUTIC_URL:-http://localhost:${MAUTIC_PORT:-8080}}"
+SENDGRID_URL="https://api.sendgrid.com"
+OLLAMA_URL="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 BUFFER_URL="${BUFFER_API_URL:-https://api.buffer.com}"
 
 PASS=0
@@ -46,8 +47,31 @@ echo ""
 # n8n
 check "n8n" "$N8N_URL/healthz" "200"
 
-# Mautic (may redirect to installer on first run)
-check "Mautic" "$MAUTIC_URL" "200"
+# SendGrid API (v3 — returns 200 with valid key)
+if [ -n "${SENDGRID_API_KEY:-}" ] && [ "$SENDGRID_API_KEY" != "PASTE_FROM_AZURE_KEY_VAULT" ]; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+        "${SENDGRID_URL}/v3/scopes" \
+        -H "Authorization: Bearer ${SENDGRID_API_KEY}" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "  [PASS] SendGrid API — authenticated, HTTP $HTTP_CODE"
+        PASS=$((PASS + 1))
+    else
+        echo "  [FAIL] SendGrid API — HTTP $HTTP_CODE (check SENDGRID_API_KEY)"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    echo "  [SKIP] SendGrid API — SENDGRID_API_KEY not set"
+fi
+
+# Ollama (local LLM)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "${OLLAMA_URL}/api/tags" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "200" ]; then
+    echo "  [PASS] Ollama — responding at ${OLLAMA_URL}"
+    PASS=$((PASS + 1))
+else
+    echo "  [FAIL] Ollama — HTTP $HTTP_CODE at ${OLLAMA_URL}"
+    FAIL=$((FAIL + 1))
+fi
 
 # Buffer API (GraphQL — requires Bearer token)
 if [ -n "${BUFFER_ACCESS_TOKEN:-}" ]; then
@@ -100,32 +124,14 @@ else
     FAIL=$((FAIL + 1))
 fi
 
-# Redis
-if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
-    echo "  [PASS] Redis — PONG"
-    PASS=$((PASS + 1))
-else
-    echo "  [FAIL] Redis — not responding"
-    FAIL=$((FAIL + 1))
-fi
-
-# n8n databases exist
+# n8n database exists
 N8N_DB=$(docker compose exec -T postgres psql -U "${POSTGRES_USER:-marketing_stack}" -lqt 2>/dev/null | grep -c "n8n" || echo "0")
-MAUTIC_DB=$(docker compose exec -T postgres psql -U "${POSTGRES_USER:-marketing_stack}" -lqt 2>/dev/null | grep -c "mautic" || echo "0")
 
 if [ "$N8N_DB" -ge 1 ]; then
     echo "  [PASS] n8n database exists"
     PASS=$((PASS + 1))
 else
     echo "  [FAIL] n8n database not found"
-    FAIL=$((FAIL + 1))
-fi
-
-if [ "$MAUTIC_DB" -ge 1 ]; then
-    echo "  [PASS] Mautic database exists"
-    PASS=$((PASS + 1))
-else
-    echo "  [FAIL] Mautic database not found"
     FAIL=$((FAIL + 1))
 fi
 

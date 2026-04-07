@@ -61,10 +61,10 @@ fi
 echo ""
 echo "[4/6] Setting up credential templates..."
 
-# Mautic API credential
-MAUTIC_CRED_PAYLOAD=$(cat <<'EOF'
+# SendGrid API credential
+SENDGRID_CRED_PAYLOAD=$(cat <<'EOF'
 {
-  "name": "Mautic Marketing API",
+  "name": "SendGrid Email API",
   "type": "httpHeaderAuth",
   "data": {
     "name": "Authorization",
@@ -74,19 +74,19 @@ MAUTIC_CRED_PAYLOAD=$(cat <<'EOF'
 EOF
 )
 
-MAUTIC_RESP=$(curl -s -w "\n%{http_code}" -X POST \
+SENDGRID_RESP=$(curl -s -w "\n%{http_code}" -X POST \
     -u "$N8N_USER:$N8N_PASS" \
     -H "Content-Type: application/json" \
-    -d "$MAUTIC_CRED_PAYLOAD" \
+    -d "$SENDGRID_CRED_PAYLOAD" \
     "$N8N_URL/api/v1/credentials" 2>/dev/null || echo "")
 
-MAUTIC_HTTP=$(echo "$MAUTIC_RESP" | tail -1)
-if [ "$MAUTIC_HTTP" = "200" ] || [ "$MAUTIC_HTTP" = "201" ]; then
-    echo "  [OK] Created credential: Mautic Marketing API"
-elif [ "$MAUTIC_HTTP" = "409" ]; then
-    echo "  [SKIP] Credential 'Mautic Marketing API' already exists"
+SENDGRID_HTTP=$(echo "$SENDGRID_RESP" | tail -1)
+if [ "$SENDGRID_HTTP" = "200" ] || [ "$SENDGRID_HTTP" = "201" ]; then
+    echo "  [OK] Created credential: SendGrid Email API"
+elif [ "$SENDGRID_HTTP" = "409" ]; then
+    echo "  [SKIP] Credential 'SendGrid Email API' already exists"
 else
-    echo "  [WARN] Mautic credential — HTTP $MAUTIC_HTTP (may need manual setup)"
+    echo "  [WARN] SendGrid credential — HTTP $SENDGRID_HTTP (may need manual setup)"
 fi
 
 # Buffer API credential

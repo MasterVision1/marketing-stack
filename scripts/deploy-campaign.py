@@ -157,7 +157,7 @@ def validate_business_rules(spec):
 
 
 def compile_campaign(spec, env):
-    """Compile campaign spec into deployable n8n workflow JSON + Mautic assets."""
+    """Compile campaign spec into deployable n8n workflow JSON + SendGrid assets."""
     campaign_id = spec["id"]
     version = spec.get("version", "v1")
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -175,11 +175,11 @@ def compile_campaign(spec, env):
             "can_rollback": True,
         },
         "n8n_workflows": [],
-        "mautic_assets": {
+        "sendgrid_assets": {
             "tags": [],
-            "segments": [],
+            "lists": [],
             "emails": [],
-            "campaign": None,
+            "single_sends": None,
         },
         "buffer_posts": [],
     }
@@ -187,7 +187,7 @@ def compile_campaign(spec, env):
     # Compile entry tags
     entry_tags = spec.get("tags", {}).get("add_on_entry", [])
     exit_tags = spec.get("tags", {}).get("remove_on_exit", [])
-    deployment["mautic_assets"]["tags"] = list(set(entry_tags + exit_tags))
+    deployment["sendgrid_assets"]["tags"] = list(set(entry_tags + exit_tags))
 
     # Compile steps into workflow nodes
     workflow_nodes = []
@@ -204,9 +204,9 @@ def compile_campaign(spec, env):
             node["delay"] = step["delay"]
 
         if step["type"] == "send_email":
-            deployment["mautic_assets"]["emails"].append({
+            deployment["sendgrid_assets"]["emails"].append({
                 "step_id": step["id"],
-                "template": step.get("config", {}).get("template_id"),
+                "template_id": step.get("config", {}).get("template_id"),
                 "subject": step.get("config", {}).get("subject"),
             })
 
@@ -285,9 +285,9 @@ def compile_campaign(spec, env):
 
     print(f"  [OK] Compiled to: {output_path}")
     print(f"  [OK] Workflows: {len(deployment['n8n_workflows'])}")
-    print(f"  [OK] Mautic emails: {len(deployment['mautic_assets']['emails'])}")
+    print(f"  [OK] SendGrid emails: {len(deployment['sendgrid_assets']['emails'])}")
     print(f"  [OK] Buffer posts: {len(deployment['buffer_posts'])}")
-    print(f"  [OK] Tags: {deployment['mautic_assets']['tags']}")
+    print(f"  [OK] Tags: {deployment['sendgrid_assets']['tags']}")
 
     return deployment
 
@@ -300,7 +300,6 @@ def dry_run(deployment, env):
     print(f"  Version: {deployment['version']}")
 
     n8n_url = f"{env.get('N8N_PROTOCOL', 'http')}://{env.get('N8N_HOST', 'localhost')}:{env.get('N8N_PORT', '5678')}"
-    mautic_url = env.get("MAUTIC_URL", "http://localhost:8080")
 
     # Check n8n
     try:
@@ -309,12 +308,20 @@ def dry_run(deployment, env):
     except requests.RequestException:
         print("  [CHECK] n8n reachable: NO (stack may not be running)")
 
-    # Check Mautic
-    try:
-        resp = requests.get(mautic_url, timeout=5)
-        print(f"  [CHECK] Mautic reachable: {'YES' if resp.status_code in (200, 301, 302) else 'NO'}")
-    except requests.RequestException:
-        print("  [CHECK] Mautic reachable: NO (stack may not be running)")
+    # Check SendGrid
+    sendgrid_key = env.get("SENDGRID_API_KEY", "")
+    if sendgrid_key and sendgrid_key != "PASTE_FROM_AZURE_KEY_VAULT":
+        try:
+            resp = requests.get(
+                "https://api.sendgrid.com/v3/scopes",
+                headers={"Authorization": f"Bearer {sendgrid_key}"},
+                timeout=5,
+            )
+            print(f"  [CHECK] SendGrid API: {'YES' if resp.status_code == 200 else 'NO'}")
+        except requests.RequestException:
+            print("  [CHECK] SendGrid API: NO")
+    else:
+        print("  [CHECK] SendGrid API: SKIP (no key)"))
 
     # Check Buffer (GraphQL API)
     buffer_token = env.get("BUFFER_ACCESS_TOKEN", "")
@@ -364,15 +371,15 @@ def dry_run(deployment, env):
     for wf in deployment.get("n8n_workflows", []):
         print(f"  [WOULD CREATE] n8n workflow: {wf['name']} ({len(wf.get('nodes', []))} nodes)")
 
-    for email in deployment.get("mautic_assets", {}).get("emails", []):
-        print(f"  [WOULD CREATE] Mautic email: step {email['step_id']} — {email.get('subject', 'no subject')}")
+    for email in deployment.get("sendgrid_assets", {}).get("emails", []):
+        print(f"  [WOULD CREATE] SendGrid email: step {email['step_id']} — {email.get('subject', 'no subject')}")
 
     for post in deployment.get("buffer_posts", []):
         text_preview = (post.get("text", "")[:60] + "...") if len(post.get("text", "")) > 60 else post.get("text", "")
         print(f"  [WOULD CREATE] Buffer post: {text_preview}")
 
-    for tag in deployment.get("mautic_assets", {}).get("tags", []):
-        print(f"  [WOULD ENSURE] Mautic tag: {tag}")
+    for tag in deployment.get("sendgrid_assets", {}).get("tags", []):
+        print(f"  [WOULD ENSURE] SendGrid contact tag: {tag}")
 
     if d365_url and d365_url != "CHANGE_ME_DYNAMICS365_URL":
         print(f"  [WOULD CREATE] D365 vo_MarketingCampaign: {deployment['campaign_name']}")

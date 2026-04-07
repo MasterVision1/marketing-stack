@@ -1,7 +1,7 @@
 # Marketing Stack — RunmAi
 
-CLI-first marketing automation stack.
-**n8n** = orchestration · **Mautic** = marketing backend · **Buffer** = social publishing · **Git** = source of truth
+CLI-first, 24/7 autonomous marketing automation.
+**OpenClaw** = AI brain · **Ollama** = local LLM ($0) · **n8n** = workflow engine · **D365** = CRM · **SendGrid** = email · **Buffer** = social
 
 ---
 
@@ -21,12 +21,13 @@ CLI-first marketing automation stack.
 
 ```bash
 # Phase 1: Infrastructure
-./scripts/setup.sh                          # Stand up Docker stack
-./scripts/check-health.sh                   # Verify n8n, Mautic, Buffer reachable
+./scripts/setup.sh                          # Stand up Docker stack (Postgres + n8n)
+./scripts/check-health.sh                   # Verify n8n, SendGrid, Ollama, Buffer, D365
 
 # Phase 2: Bootstrap credentials
-python scripts/bootstrap-mautic.py          # Enable API, create OAuth client, verify endpoints
+python scripts/bootstrap-sendgrid.py        # Verify API key, list templates, create suppression groups
 python scripts/bootstrap-buffer.py          # Verify token, fetch channels, test scheduled post
+python scripts/bootstrap-dynamics365.py     # Verify D365 connection, check ConsultingOpsCore tables
 bash scripts/bootstrap-n8n.sh               # Admin account, encryption key, credential entries
 
 # Phase 3: Deploy campaigns
@@ -38,14 +39,38 @@ No freestyle. No improvisation. The agent follows this path or stops.
 
 ---
 
+## Architecture
+
+```
+                    ┌─────────────┐
+                    │  OpenClaw   │  24/7 AI agent (heartbeat every 30m)
+                    │  + Ollama   │  local LLM (gemma4, $0 cost)
+                    └──────┬──────┘
+                           │ triggers via webhook / cron
+                    ┌──────▼──────┐
+                    │    n8n      │  workflow orchestration
+                    └──┬───┬───┬──┘
+                       │   │   │
+              ┌────────┘   │   └────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │ SendGrid │ │   D365   │ │  Buffer  │
+        │  email   │ │   CRM    │ │  social  │
+        └──────────┘ └──────────┘ └──────────┘
+```
+
+---
+
 ## Setup Order
 
 1. **Repo** — structure, env files, .gitignore
-2. **Stack** — Docker Compose (n8n + Mautic + Postgres + Redis)
-3. **Auth** — Mautic API enable, n8n credentials, Buffer token
-4. **Schemas** — campaign.schema.json, contact-event.schema.json
-5. **Workflows** — reusable n8n blocks
-6. **First campaign** — 14-day onboarding (dry-run then live)
+2. **Stack** — Docker Compose (n8n + Postgres)
+3. **Ollama** — Install, pull gemma4 model
+4. **OpenClaw** — Install, configure workspace + skills
+5. **Auth** — SendGrid API key, n8n credentials, Buffer token, D365 via Azure CLI
+6. **Schemas** — campaign.schema.json, contact-event.schema.json
+7. **Workflows** — reusable n8n blocks
+8. **First campaign** — 14-day onboarding (dry-run then live)
 
 ---
 
@@ -54,12 +79,19 @@ No freestyle. No improvisation. The agent follows this path or stops.
 ```
 marketing-stack/
   .env.example          # Template — never commit real .env
-  docker-compose.yml    # n8n + Mautic + Postgres + Redis
+  docker-compose.yml    # n8n + Postgres
+  openclaw/
+    workspace/          # OpenClaw workspace files
+      AGENTS.md         # Agent identity + mission
+      HEARTBEAT.md      # Heartbeat behavior (every 30m)
+      SOUL.md           # Agent persona
+      skills/           # Marketing skills (SKILL.md files)
   scripts/
     setup.sh            # Docker up + health wait
     check-health.sh     # Endpoint liveness checks
-    bootstrap-mautic.py # Mautic API setup
+    bootstrap-sendgrid.py # SendGrid API verification
     bootstrap-buffer.py # Buffer API verification
+    bootstrap-dynamics365.py # D365 connection verification
     bootstrap-n8n.sh    # n8n admin + creds
     deploy-campaign.py  # Validate → compile → deploy
   schemas/
@@ -72,43 +104,32 @@ marketing-stack/
     templates/          # Reusable n8n workflow blocks
     compiled/           # Compiled workflow JSON (generated)
   config/
-    mautic.json         # Mautic connection config (no secrets)
+    sendgrid.json       # SendGrid connection config (no secrets)
     buffer.json         # Buffer connection config (no secrets)
     n8n.json            # n8n connection config (no secrets)
+    dynamics365.json    # D365 CRM config (no secrets)
+    openclaw.json       # OpenClaw gateway config
 ```
 
 ---
 
-## 7-Day Setup Sequence
+## OpenClaw Cron Jobs
 
-| Day | Task |
-|-----|------|
-| 1 | Repo, Docker setup, env files, health scripts |
-| 2 | Install n8n and Mautic, confirm login and persistence |
-| 3 | Enable Mautic API, set up auth, verify contact/segment endpoints |
-| 4 | Buffer credentials, verify channel read + scheduled post |
-| 5 | Campaign schema, event schema, first workflow templates |
-| 6 | Deployment script, dry-run test campaign |
-| 7 | Deploy live onboarding test, verify end-to-end event branching |
-
----
-
-## What NOT To Do Yet
-
-- Build UI
-- Create dozens of campaigns
-- Attempt analytics dashboards
-- Do multitenancy
-- Connect FlowGen
-- Build custom asset editors
-- Support every channel at once
+| Schedule | Job | Description |
+|----------|-----|-------------|
+| 7:00 AM daily | `daily-content-plan` | Plan social posts + newsletter content |
+| Every 2h (8am-6pm weekdays) | `lead-check` | Score new D365 leads, trigger email sequences |
+| Monday 9:00 AM | `weekly-newsletter` | Compile and send weekly newsletter via SendGrid |
+| 6:00 PM weekdays | `daily-review` | Summarize day's activity, plan tomorrow |
 
 ---
 
 ## Prerequisites
 
-- Docker + Docker Compose
+- Docker + Docker Compose (WSL2 on Windows)
 - Python 3.10+
-- Node.js 18+ (for n8n CLI)
-- Buffer API token (from https://publish.buffer.com/apps)
-- Domain/IP for Mautic (or localhost for dev)
+- Node.js 18+
+- Ollama (local LLM runtime)
+- Azure CLI (for D365 auth)
+- Buffer API token
+- SendGrid API key (from Azure Key Vault)

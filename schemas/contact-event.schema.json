@@ -45,7 +45,7 @@
     },
     "contact_id": {
       "type": "string",
-      "description": "Mautic contact ID or external reference"
+      "description": "SendGrid contact ID, D365 record GUID, or external reference"
     },
     "timestamp": {
       "type": "string",
@@ -54,7 +54,7 @@
     },
     "source": {
       "type": "string",
-      "enum": ["mautic", "n8n", "buffer", "dynamics365", "webhook", "manual"],
+      "enum": ["sendgrid", "n8n", "buffer", "dynamics365", "openclaw", "webhook", "manual"],
       "description": "System that generated this event"
     },
     "campaign_id": {
