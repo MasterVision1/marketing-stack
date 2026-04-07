@@ -10,7 +10,14 @@
       "logical_name": "vo_client",
       "display_name": "Client",
       "primary_field": "vo_name",
-      "key_columns": ["vo_name", "vo_contactemail", "vo_contactphone", "vo_industry", "vo_accountowner", "vo_status"],
+      "key_columns": [
+        "vo_name",
+        "vo_contactemail",
+        "vo_contactphone",
+        "vo_industry",
+        "vo_accountowner",
+        "vo_status"
+      ],
       "maps_to_mautic": "contact"
     },
     "engagement": {
@@ -27,7 +34,14 @@
       "logical_name": "vo_marketingcampaign",
       "display_name": "Marketing Campaign",
       "primary_field": "vo_name",
-      "key_columns": ["vo_name", "vo_startdate", "vo_enddate", "vo_campaigntype", "vo_budget", "vo_status"],
+      "key_columns": [
+        "vo_name",
+        "vo_startdate",
+        "vo_enddate",
+        "vo_campaigntype",
+        "vo_budget",
+        "vo_status"
+      ],
       "maps_to_mautic": "campaign"
     },
     "request": {
@@ -83,5 +97,8 @@
     ],
     "conflict_resolution": "most_recent_wins",
     "match_field": "email"
-  }
+  },
+  "verified": true,
+  "verified_user_id": "ff5f19c5-ec2f-f111-88b4-7ced8d6fed14",
+  "verified_org_id": "084db5ee-da31-f111-a7e5-000d3a5cb417"
 }

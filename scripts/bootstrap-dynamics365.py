@@ -46,8 +46,8 @@ def get_dataverse_token(base_url):
     """Get Bearer token from Azure CLI for Dataverse."""
     try:
         result = subprocess.run(
-            ["az", "account", "get-access-token", "--resource", f"{base_url}/"],
-            capture_output=True, text=True, timeout=30
+            f'az account get-access-token --resource "{base_url}/"',
+            capture_output=True, text=True, timeout=30, shell=True
         )
         if result.returncode != 0:
             print(f"ERROR: az account get-access-token failed:")

@@ -342,8 +342,8 @@ def dry_run(deployment, env):
         try:
             import subprocess
             token_result = subprocess.run(
-                ["az", "account", "get-access-token", "--resource", f"{d365_url}/", "--query", "accessToken", "-o", "tsv"],
-                capture_output=True, text=True, timeout=15,
+                f'az account get-access-token --resource "{d365_url}/" --query accessToken -o tsv',
+                capture_output=True, text=True, timeout=15, shell=True,
             )
             if token_result.returncode == 0 and token_result.stdout.strip():
                 d365_token = token_result.stdout.strip()
@@ -437,8 +437,8 @@ def deploy_live(deployment, env):
         try:
             import subprocess
             token_result = subprocess.run(
-                ["az", "account", "get-access-token", "--resource", f"{d365_url}/", "--query", "accessToken", "-o", "tsv"],
-                capture_output=True, text=True, timeout=15,
+                f'az account get-access-token --resource "{d365_url}/" --query accessToken -o tsv',
+                capture_output=True, text=True, timeout=15, shell=True,
             )
             if token_result.returncode == 0 and token_result.stdout.strip():
                 d365_token = token_result.stdout.strip()
