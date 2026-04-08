@@ -13,8 +13,9 @@
         fallbacks: ["anthropic/claude-sonnet-4-6"],
       },
       // Heartbeat: periodic autonomous check-ins
+      // Uses local Ollama (free) — bumped to 2h to reduce resource usage
       heartbeat: {
-        every: "30m",
+        every: "2h",
         model: "ollama/gemma3:4b",
         lightContext: true,
         isolatedSession: true,
